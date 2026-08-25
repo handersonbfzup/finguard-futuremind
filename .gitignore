@@ -45,8 +45,6 @@ env/
 *.json
 *.html
 resultado_*.json
-dashboard*.html
-adr_finguard.html
 logs/
 
 # Notebooks
