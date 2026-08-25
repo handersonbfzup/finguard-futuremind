@@ -25,6 +25,43 @@ _ACOES_BEDROCK = {
     "chamada_bedrock_rotulagem_cluster": "rotulagem_cluster",
 }
 
+# Preços por 1 milhão de tokens (BRL), Amazon Bedrock Standard us-east-1.
+# Atualizar esta tabela quando os preços oficiais mudarem ou novos modelos entrarem em uso
+# (fonte: https://aws.amazon.com/bedrock/pricing/). Chave = substring do modelId (case-insensitive).
+_TABELA_PRECOS_BRL: list[tuple[str, str, float, float]] = [
+    ("amazon.nova-lite-v1", "Amazon Nova Lite v1", 0.34, 1.37),
+    ("claude-3-5-haiku", "Claude 3.5 Haiku", 4.56, 22.80),
+    ("claude-haiku-4-5", "Claude Haiku 4.5", 4.56, 22.80),
+    ("claude-sonnet-4-5", "Claude Sonnet 4.5", 17.10, 85.50),
+]
+
+
+def _buscar_preco(modelo_id: str | None) -> tuple[str, float, float] | None:
+    """Retorna (nome_exibicao, preco_entrada_1m, preco_saida_1m) em BRL, ou None se o modelo não está cadastrado."""
+    if not modelo_id:
+        return None
+    modelo_lower = modelo_id.lower()
+    for chave, nome, preco_entrada, preco_saida in _TABELA_PRECOS_BRL:
+        if chave in modelo_lower:
+            return nome, preco_entrada, preco_saida
+    return None
+
+
+def _custo_brl(modelo_id: str | None, tokens_entrada: int, tokens_saida: int) -> float | None:
+    """Calcula o custo estimado (BRL) de uma chamada, ou None se o modelo não tem preço cadastrado."""
+    preco = _buscar_preco(modelo_id)
+    if preco is None:
+        return None
+    _, preco_entrada, preco_saida = preco
+    return (tokens_entrada / 1_000_000) * preco_entrada + (tokens_saida / 1_000_000) * preco_saida
+
+
+def _formatar_custo_brl(valor: float) -> str:
+    """Formata custo em BRL; usa mais casas decimais para valores pequenos (execuções de teste com poucas chamadas geram frações de centavo que sumiriam com 2 casas fixas)."""
+    if valor != 0 and abs(valor) < 0.01:
+        return f"R$ {valor:.4f}"
+    return f"R$ {valor:.2f}"
+
 
 def _agregar_tokens(linhas: list[dict]) -> dict:
     """Agrega consumo de tokens (usage do Converse) por agente e por mensagem a partir dos logs."""
@@ -44,16 +81,32 @@ def _agregar_tokens(linhas: list[dict]) -> dict:
         entrada = detalhes.get("tokens_entrada") or 0
         saida = detalhes.get("tokens_saida") or 0
         total = detalhes.get("tokens_total") or 0
+        modelo = detalhes.get("modelo")
 
         agregado_agente = por_agente.setdefault(
-            agente, {"agente": agente, "chamadas": 0, "tokens_entrada": 0, "tokens_saida": 0, "tokens_total": 0}
+            agente,
+            {
+                "agente": agente,
+                "chamadas": 0,
+                "tokens_entrada": 0,
+                "tokens_saida": 0,
+                "tokens_total": 0,
+                "custo_brl": 0.0,
+                "preco_indisponivel": False,
+            },
         )
         agregado_agente["chamadas"] += 1
         agregado_agente["tokens_entrada"] += entrada
         agregado_agente["tokens_saida"] += saida
         agregado_agente["tokens_total"] += total
-        if detalhes.get("modelo"):
-            modelos_por_agente[agente].add(detalhes["modelo"])
+        if modelo:
+            modelos_por_agente[agente].add(modelo)
+
+        custo_linha = _custo_brl(modelo, entrada, saida)
+        if custo_linha is None:
+            agregado_agente["preco_indisponivel"] = True
+        else:
+            agregado_agente["custo_brl"] += custo_linha
 
         reclamacao_id = linha.get("reclamacao_id")
         if reclamacao_id:
@@ -68,14 +121,25 @@ def _agregar_tokens(linhas: list[dict]) -> dict:
     for item in tokens_por_agente:
         item["media_tokens_chamada"] = round(item["tokens_total"] / item["chamadas"], 1) if item["chamadas"] else 0.0
         item["modelos"] = ", ".join(sorted(modelos_por_agente.get(item["agente"], []))) or "—"
+        # Se algum modelo usado pelo agente não tem preço cadastrado, o custo do agente fica
+        # indisponível (evita exibir um total parcial que pareça completo). Mantém o valor bruto
+        # (sem arredondar ainda) para a soma do total não acumular erro de arredondamento.
+        item["custo_brl"] = None if item["preco_indisponivel"] else item["custo_brl"]
+        item["custo_brl_fmt"] = _formatar_custo_brl(item["custo_brl"]) if item["custo_brl"] is not None else None
 
     top_mensagens = sorted(por_mensagem.values(), key=lambda item: item["tokens_total"], reverse=True)[:20]
+
+    custo_total_brl = sum(item["custo_brl"] for item in tokens_por_agente if item["custo_brl"] is not None)
+    custo_disponivel = any(item["custo_brl"] is not None for item in tokens_por_agente)
 
     totais = {
         "tokens_entrada": sum(item["tokens_entrada"] for item in tokens_por_agente),
         "tokens_saida": sum(item["tokens_saida"] for item in tokens_por_agente),
         "tokens_total": sum(item["tokens_total"] for item in tokens_por_agente),
         "chamadas": sum(item["chamadas"] for item in tokens_por_agente),
+        "custo_brl_fmt": _formatar_custo_brl(custo_total_brl) if custo_disponivel else None,
+        "custo_disponivel": custo_disponivel,
+        "custo_parcial": any(item["custo_brl"] is None for item in tokens_por_agente),
     }
 
     return {"totais": totais, "por_agente": tokens_por_agente, "top_mensagens": top_mensagens}
