@@ -1,3 +1,5 @@
+source venv/bin/activate
+
 python3 main.py --sem-llm, que processa tudo sem chamar o Bedrock — não gasta nada e não precisa de credenciais)
 
 aws sso login --profile bedrock

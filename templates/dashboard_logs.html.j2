@@ -40,9 +40,54 @@
     {% if duracao_total_ms is not none %}
     <div class="cartao"><div class="numero">{{ "%.1f"|format(duracao_total_ms / 1000) }}s</div><div class="rotulo">Duração total da execução</div></div>
     {% endif %}
+    {% if tokens_totais.chamadas %}
+    <div class="cartao"><div class="numero">{{ tokens_totais.tokens_entrada }}</div><div class="rotulo">Tokens de entrada</div></div>
+    <div class="cartao"><div class="numero">{{ tokens_totais.tokens_saida }}</div><div class="rotulo">Tokens de saída</div></div>
+    <div class="cartao"><div class="numero">{{ tokens_totais.tokens_total }}</div><div class="rotulo">Tokens totais ({{ tokens_totais.chamadas }} chamadas)</div></div>
+    {% endif %}
   </div>
 
   <div class="grade">
+    {% if tokens_por_agente %}
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Consumo de tokens por agente</h2>
+      <table>
+        <thead><tr><th>Agente</th><th>Modelo</th><th>Chamadas</th><th>Tokens entrada</th><th>Tokens saída</th><th>Tokens total</th><th>Média/chamada</th></tr></thead>
+        <tbody>
+          {% for item in tokens_por_agente %}
+          <tr>
+            <td>{{ item.agente }}</td>
+            <td>{{ item.modelos }}</td>
+            <td>{{ item.chamadas }}</td>
+            <td>{{ item.tokens_entrada }}</td>
+            <td>{{ item.tokens_saida }}</td>
+            <td>{{ item.tokens_total }}</td>
+            <td>{{ item.media_tokens_chamada }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Top 20 mensagens por consumo de tokens</h2>
+      <table>
+        <thead><tr><th>Reclamação</th><th>Chamadas</th><th>Tokens entrada</th><th>Tokens saída</th><th>Tokens total</th></tr></thead>
+        <tbody>
+          {% for item in tokens_top_mensagens %}
+          <tr>
+            <td>{{ item.reclamacao_id }}</td>
+            <td>{{ item.chamadas }}</td>
+            <td>{{ item.tokens_entrada }}</td>
+            <td>{{ item.tokens_saida }}</td>
+            <td>{{ item.tokens_total }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
     <div class="painel">
       <h2>Ações por tipo</h2>
       {% for nome, qtd in contagem_acao %}
