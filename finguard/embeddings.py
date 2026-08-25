@@ -26,17 +26,26 @@ STOPWORDS_PT = [
 ]
 
 
-def gerar_embeddings_bedrock(textos, modelo_id=MODELO_EMBEDDING_PADRAO, regiao=REGIAO_PADRAO):
+def gerar_embeddings_bedrock(textos, modelo_id=MODELO_EMBEDDING_PADRAO, regiao=REGIAO_PADRAO, max_workers=8):
     """Gera embeddings reais via Bedrock (Titan). Requer credenciais AWS configuradas."""
     import boto3
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     cliente = boto3.client("bedrock-runtime", region_name=regiao)
-    vetores = []
-    for texto in textos:
+
+    def _gerar_um(texto: str) -> list[float]:
         corpo = json.dumps({"inputText": texto[:8000]})
         resposta = cliente.invoke_model(modelId=modelo_id, body=corpo)
         payload = json.loads(resposta["body"].read())
-        vetores.append(payload["embedding"])
+        return payload["embedding"]
+
+    # Chamadas independentes de rede: paralelizar evita serializar centenas de round-trips.
+    vetores: list[list[float] | None] = [None] * len(textos)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futuros = {executor.submit(_gerar_um, texto): indice for indice, texto in enumerate(textos)}
+        for futuro in as_completed(futuros):
+            vetores[futuros[futuro]] = futuro.result()
+
     return np.array(vetores)
 
 

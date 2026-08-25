@@ -19,6 +19,7 @@ import pandas as pd
 from finguard.bedrock_client import rotular_cluster
 from finguard.clustering import avaliar_k, escolher_k_otimo, treinar_kmeans
 from finguard.embeddings import STOPWORDS_PT, gerar_embeddings_bedrock, gerar_embeddings_locais
+from finguard.logging_config import iniciar_execucao, registrar
 
 
 def rotular_localmente(textos_amostra: list[str]) -> str:
@@ -54,6 +55,10 @@ def processar_clusters(caminho_csv: str, usar_llm: bool, k_forcado: int | None):
     for cluster_id, itens in sorted(grupos.items()):
         amostra = [item["texto"] for item in itens[:8]]
         rotulo = rotular_cluster(amostra) if usar_llm else rotular_localmente(amostra)
+        registrar(
+            acao="cluster_rotulagem",
+            detalhes={"cluster_id": cluster_id, "tamanho": len(itens), "rotulo": rotulo},
+        )
         clusters.append(
             {
                 "cluster_id": cluster_id,
@@ -74,6 +79,7 @@ def main():
     parser.add_argument("--out-json", default="resultado_clusters.json")
     args = parser.parse_args()
 
+    iniciar_execucao(prefixo="cluster")
     resultado = processar_clusters(args.csv, usar_llm=not args.sem_llm, k_forcado=args.k)
 
     with open(args.out_json, "w", encoding="utf-8") as arquivo:
