@@ -106,6 +106,15 @@ def _extrair_json(texto_resposta: str) -> dict:
     return json.loads(texto_resposta[inicio : fim + 1])
 
 
+def _normalizar_resumo(resumo: object) -> str:
+    """O modelo às vezes retorna `resumo` como lista de frases em vez de uma única string."""
+    if isinstance(resumo, list):
+        return " ".join(str(item) for item in resumo)
+    if not isinstance(resumo, str):
+        return str(resumo)
+    return resumo
+
+
 def classificar_reclamacao(
     texto: str,
     modelo_id: str = MODELO_TRIAGEM_PADRAO,
@@ -146,7 +155,7 @@ def classificar_reclamacao(
 
         try:
             dados = _extrair_json(texto_resposta)
-            dados["resumo"] = mascarar_dados_sensiveis(dados.get("resumo", ""))
+            dados["resumo"] = mascarar_dados_sensiveis(_normalizar_resumo(dados.get("resumo", "")))
             resultado = ClassificacaoReclamacao.model_validate(dados)
             registrar(
                 acao="chamada_bedrock_triagem",
@@ -155,7 +164,7 @@ def classificar_reclamacao(
                 detalhes={"modelo": modelo_id, "tentativa": tentativa + 1},
             )
             return resultado
-        except (ValueError, ValidationError) as erro:
+        except (ValueError, ValidationError, TypeError) as erro:
             ultimo_erro = erro
             registrar(
                 acao="chamada_bedrock_triagem",
