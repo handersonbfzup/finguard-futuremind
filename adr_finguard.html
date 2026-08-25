@@ -168,12 +168,19 @@
         A justificativa central é <strong>separação de responsabilidades com custo proporcional
         ao risco/complexidade de cada etapa</strong>: a triagem (classificar categoria, produto,
         sentimento, urgência) é uma tarefa de classificação relativamente simples e de altíssimo
-        volume (roda para 100% das reclamações não bloqueadas), então usa
-        <code>anthropic.claude-3-5-haiku-20241022-v1:0</code>, o modelo mais barato da família
-        Claude 3.5 na Bedrock. Já a análise de risco exige mais raciocínio contextual (avaliar
-        gravidade, possível dano reputacional/regulatório, e decidir se deve elevar o piso
-        heurístico), então usa <code>anthropic.claude-3-5-sonnet-20241022-v2:0</code>, mais caro
-        mas reservado só para essa etapa mais crítica.
+        volume (roda para 100% das reclamações não bloqueadas), enquanto a análise de risco exige
+        mais raciocínio contextual (avaliar gravidade, possível dano reputacional/regulatório, e
+        decidir se deve elevar o piso heurístico) — o desenho original previa um modelo leve
+        (Haiku) para a triagem e um modelo mais robusto (Sonnet) para o risco.
+      </p>
+      <p class="nota">
+        <strong>Atualização de runtime:</strong> os modelos Anthropic (Claude 3.5 Haiku/Sonnet estão
+        em fim de vida; Claude Haiku 4.5/Sonnet 5 estão bloqueados por Service Control Policy da
+        organização) não estão disponíveis nesta conta no momento. Enquanto isso, ambas as etapas
+        usam temporariamente <code>amazon.nova-lite-v1:0</code> (Amazon Nova Lite, liberado pela
+        SCP), configurado em <code>finguard/bedrock_client.py</code>. O roteamento por tarefa
+        (modelo barato vs. modelo robusto) continua sendo a arquitetura de referência e deve ser
+        restaurado assim que a SCP permitir os modelos Anthropic desejados.
       </p>
       <p>
         Os guardrails de entrada e saída são <strong>determinísticos (regex), não dependem de
@@ -189,8 +196,10 @@
         <tr><th>Aspecto</th><th>Consequência</th></tr>
         <tr><td>Latência</td><td>Maior que um modelo único (várias chamadas em sequência por
         reclamação), mas aceitável para processamento em lote/assíncrono como o do desafio.</td></tr>
-        <tr><td>Custo</td><td>Otimizado por tarefa: o modelo caro (Sonnet) só é chamado depois que a
-        reclamação já passou pelo guardrail de entrada, evitando gasto com conteúdo bloqueado.</td></tr>
+        <tr><td>Custo</td><td>O LLM (atualmente Nova Lite para as duas etapas) só é chamado depois
+        que a reclamação já passou pelo guardrail de entrada, evitando gasto com conteúdo bloqueado;
+        o roteamento por modelo caro/barato por tarefa volta a se aplicar quando os modelos Anthropic
+        forem liberados (ver seção 3).</td></tr>
         <tr><td>Auditabilidade</td><td>Cada nó grava seu próprio log (agente, entrada, saída,
         tempo), permitindo rastrear exatamente qual etapa produziu qual decisão — essencial para
         compliance financeiro.</td></tr>
@@ -205,25 +214,31 @@
     <section id="custos">
       <h2>5. Análise de custo estimada</h2>
       <p>
-        Os valores abaixo são <strong>estimativas de referência</strong> baseadas na ordem de
-        grandeza pública dos preços da família Claude 3.5 na AWS Bedrock; devem ser confirmados
-        na página oficial de preços da AWS antes de qualquer decisão orçamentária, pois podem
-        mudar por região/negociação.
+        Os valores abaixo refletem os preços cadastrados em <code>finguard/dashboard_logs.py</code>
+        (BRL por 1M de tokens, Bedrock Standard us-east-1) e devem ser confirmados na página oficial
+        de preços da AWS antes de qualquer decisão orçamentária, pois podem mudar por região/negociação.
       </p>
       <table>
-        <tr><th>Modelo</th><th>Uso no FinGuard</th><th>Custo relativo aproximado (entrada/saída)</th><th>Por quê</th></tr>
+        <tr><th>Modelo</th><th>Uso no FinGuard</th><th>Preço aprox. (entrada / saída por 1M tokens, BRL)</th><th>Por quê</th></tr>
         <tr>
-          <td>Claude 3.5 Haiku</td>
+          <td>Amazon Nova Lite v1 <span class="badge ok">Em uso atualmente</span></td>
+          <td>Triagem e análise de risco (temporário, ver seção 3)</td>
+          <td>R$ 0,34 / R$ 1,37</td>
+          <td>Modelo liberado pela SCP da organização; custo bem abaixo da família Claude 3.5,
+          usado nas duas etapas enquanto os modelos Anthropic seguem bloqueados.</td>
+        </tr>
+        <tr>
+          <td>Claude 3.5 Haiku (desenho de referência)</td>
           <td>Triagem (categoria, produto, sentimento, urgência)</td>
-          <td>~1x (referência), o mais barato da linha</td>
+          <td>R$ 4,56 / R$ 22,80</td>
           <td>Tarefa de classificação estruturada, volume alto (100% do tráfego não bloqueado),
           não exige raciocínio profundo — modelo pequeno é suficiente e reduz custo total em
           escala.</td>
         </tr>
         <tr>
-          <td>Claude 3.5 Sonnet</td>
+          <td>Claude 3.5 Sonnet (desenho de referência)</td>
           <td>Análise de risco</td>
-          <td>~4-5x mais caro que o Haiku por token</td>
+          <td>Ordem de grandeza bem mais cara que o Haiku por token</td>
           <td>Exige avaliar contexto, gravidade e possível impacto regulatório — reservado para
           essa etapa mais sensível, não para o volume total.</td>
         </tr>
@@ -232,7 +247,8 @@
         Estratégia de custo: modelo barato para a tarefa de alto volume e baixa complexidade,
         modelo mais caro só para a etapa que exige mais raciocínio — é a resposta direta à
         pergunta obrigatória da banca ("quais ferramentas de IA você utilizou e como elas
-        contribuíram?").
+        contribuíram?"). O consumo real de tokens e custo estimado por execução ficam disponíveis
+        no dashboard de logs (<code>dashboard_logs.html</code>).
       </p>
     </section>
 
@@ -290,13 +306,14 @@
         </tr>
       </table>
       <p>
-        Os embeddings de texto (entrada do K-Means) seguem a mesma lógica de custo do restante
-        do projeto: em produção, usam o Amazon Titan Embed Text v2 via Bedrock; para testes sem
+        Os embeddings de texto (entrada do K-Means) fazem parte de um fluxo opcional, executado
+        separadamente via <code>script_cluster.py</code> (não no <code>main.py</code>). Quando esse
+        fluxo roda com LLM habilitado, usa Amazon Titan Embed Text v2 via Bedrock; para testes sem
         custo/credenciais, um modo local com TF-IDF (scikit-learn) permite validar todo o
         pipeline (Elbow, Silhouette Score, K-Means, rotulagem) offline. O número de clusters (k)
         é escolhido automaticamente pelo maior Silhouette Score dentre k=2 a 10, evitando decidir
-        esse valor por tentativa e erro manual. A rotulagem de cada cluster usa o Haiku (modelo
-        barato), já que é uma tarefa simples de resumo a partir de poucos exemplos.
+        esse valor por tentativa e erro manual. Nesta entrega, o treino foi mantido em
+        <code>scikit-learn</code> local e não foi integrado ao SageMaker no runtime principal.
       </p>
     </section>
 
@@ -305,11 +322,11 @@
       <table>
         <tr><th>Item</th><th>Status</th></tr>
         <tr><td>Guardrail de entrada (regex)</td><td><span class="badge ok">Concluído</span> — 33/500 reclamações bloqueadas no dataset de teste, sem falsos positivos conhecidos.</td></tr>
-        <tr><td>Agente de triagem (Haiku)</td><td><span class="badge ok">Implementado</span> — código pronto, não testado contra Bedrock real (sem credenciais AWS).</td></tr>
-        <tr><td>Agente de risco (Sonnet + heurística POL-SAC-001)</td><td><span class="badge ok">Implementado</span> — heurística validada em modo <code>--sem-llm</code> (141/500 marcadas Alto/Crítico).</td></tr>
+        <tr><td>Agente de triagem (Amazon Nova Lite v1)</td><td><span class="badge ok">Implementado</span> — validado com chamadas reais ao Bedrock (perfil dedicado + região us-east-1).</td></tr>
+        <tr><td>Agente de risco (Nova Lite + heurística POL-SAC-001)</td><td><span class="badge ok">Implementado</span> — heurística validada em modo <code>--sem-llm</code> (141/500 marcadas Alto/Crítico) e também com chamadas reais ao Bedrock.</td></tr>
         <tr><td>Agente de relatório</td><td><span class="badge ok">Implementado</span> — ação recomendada derivada da POL-SAC-001, com escalonamento automático para riscos Alto/Crítico.</td></tr>
         <tr><td>Guardrail de saída (nó dedicado)</td><td><span class="badge ok">Concluído</span> — nó separado no grafo, mascara resumo, justificativa de risco e ação recomendada.</td></tr>
-        <tr><td>Integração real com Bedrock</td><td><span class="badge atencao">Pendente</span> — depende do usuário configurar <code>aws configure</code>/<code>aws login</code>.</td></tr>
+        <tr><td>Integração real com Bedrock</td><td><span class="badge ok">Concluído</span> — validada com <code>amazon.nova-lite-v1:0</code>, incluindo benchmark de paralelismo (<code>--workers</code>) e instrumentação de consumo de tokens/custo.</td></tr>
         <tr><td>AWS Bedrock Guardrails (serviço oficial)</td><td><span class="badge risco">Não iniciado</span> — depende de credenciais AWS.</td></tr>
         <tr><td>Clusterização (embeddings + K-Means + Silhouette Score)</td><td><span class="badge ok">Concluído</span> — testado em modo local (TF-IDF): k=6 escolhido automaticamente, 6 clusters gerados via <code>script_cluster.py --sem-llm</code>.</td></tr>
         <tr><td>Rotulagem de clusters via LLM</td><td><span class="badge atencao">Pendente</span> — código pronto (<code>rotular_cluster</code>), não testado contra Bedrock real; modo local usa palavras-chave como fallback.</td></tr>
