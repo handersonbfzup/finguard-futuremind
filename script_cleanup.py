@@ -19,6 +19,8 @@ import argparse
 
 from botocore.exceptions import ClientError, NoCredentialsError
 
+from finguard.logging_config import iniciar_execucao, registrar
+
 
 def listar_recursos(cliente, prefixo: str) -> dict:
     recursos = {"endpoints": [], "endpoint_configs": [], "models": []}
@@ -46,16 +48,19 @@ def remover_recursos(cliente, recursos: dict, confirmar: bool) -> None:
         print(f"Endpoint: {nome} -> {acao}")
         if confirmar:
             cliente.delete_endpoint(EndpointName=nome)
+        registrar(acao="cleanup_endpoint", detalhes={"nome": nome, "confirmado": confirmar})
     for nome in recursos["endpoint_configs"]:
         acao = "removendo" if confirmar else "seria removido (dry-run)"
         print(f"Endpoint config: {nome} -> {acao}")
         if confirmar:
             cliente.delete_endpoint_config(EndpointConfigName=nome)
+        registrar(acao="cleanup_endpoint_config", detalhes={"nome": nome, "confirmado": confirmar})
     for nome in recursos["models"]:
         acao = "removendo" if confirmar else "seria removido (dry-run)"
         print(f"Model: {nome} -> {acao}")
         if confirmar:
             cliente.delete_model(ModelName=nome)
+        registrar(acao="cleanup_model", detalhes={"nome": nome, "confirmado": confirmar})
 
 
 def main():
@@ -64,6 +69,8 @@ def main():
     parser.add_argument("--regiao", default="us-east-1")
     parser.add_argument("--confirm", action="store_true", help="de fato apaga; sem essa flag o script só lista (dry-run)")
     args = parser.parse_args()
+
+    iniciar_execucao(prefixo="cleanup")
 
     try:
         import boto3

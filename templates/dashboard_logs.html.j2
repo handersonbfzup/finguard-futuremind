@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>FinGuard — Dashboard de Logs</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; background: #f4f6f8; color: #1b2733; margin: 0; padding: 32px; }
+  h1 { margin-bottom: 4px; }
+  .subtitulo { color: #5b6b79; margin-top: 0; font-size: 13px; }
+  .cartoes { display: flex; gap: 16px; margin: 24px 0; flex-wrap: wrap; }
+  .cartao { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); min-width: 160px; }
+  .cartao .numero { font-size: 28px; font-weight: 700; }
+  .cartao .rotulo { color: #5b6b79; font-size: 13px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
+  .painel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .painel h2 { font-size: 16px; margin-top: 0; }
+  .barra-linha { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
+  .barra-rotulo { width: 170px; flex-shrink: 0; }
+  .barra-fundo { flex: 1; background: #eef1f4; border-radius: 4px; overflow: hidden; height: 18px; }
+  .barra-preenchida { background: #2f6fed; height: 100%; }
+  .barra-preenchida.erro { background: #d9363e; }
+  .barra-valor { width: 60px; text-align: right; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eef1f4; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #ffe3e3; color: #a30d0d; }
+  .badge-ok { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #e3f8e9; color: #0d7a3a; }
+  .badge-bloqueado { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #fff4e5; color: #8a4b00; }
+  input#filtro { width: 100%; padding: 8px 10px; border: 1px solid #d7dde3; border-radius: 6px; font-size: 13px; margin-bottom: 10px; box-sizing: border-box; }
+  .tabela-scroll { max-height: 420px; overflow-y: auto; }
+</style>
+</head>
+<body>
+  <h1>FinGuard — Dashboard de Logs</h1>
+  <p class="subtitulo">Execução {{ execucao_id or "—" }} · fonte: {{ arquivo_origem }}</p>
+
+  <div class="cartoes">
+    <div class="cartao"><div class="numero">{{ total }}</div><div class="rotulo">Ações registradas</div></div>
+    <div class="cartao"><div class="numero">{{ total_erros }}</div><div class="rotulo">Ações com erro</div></div>
+    <div class="cartao"><div class="numero">{{ taxa_erro }}%</div><div class="rotulo">Taxa de erro</div></div>
+    {% if duracao_total_ms is not none %}
+    <div class="cartao"><div class="numero">{{ "%.1f"|format(duracao_total_ms / 1000) }}s</div><div class="rotulo">Duração total da execução</div></div>
+    {% endif %}
+  </div>
+
+  <div class="grade">
+    <div class="painel">
+      <h2>Ações por tipo</h2>
+      {% for nome, qtd in contagem_acao %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total * 100) if total else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel">
+      <h2>Latência média por ação (ms)</h2>
+      {% set maior_media = (latencia_por_acao | map(attribute="media_ms") | max) if latencia_por_acao else 1 %}
+      {% for item in latencia_por_acao %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ item.acao }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (item.media_ms / maior_media * 100) if maior_media else 0 }}%"></div></div>
+        <div class="barra-valor">{{ item.media_ms }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Top 20 ações mais lentas</h2>
+      <table>
+        <thead><tr><th>Timestamp</th><th>Ação</th><th>Reclamação</th><th>Duração (ms)</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for l in mais_lentas %}
+          <tr>
+            <td>{{ l.timestamp }}</td>
+            <td>{{ l.acao }}</td>
+            <td>{{ l.reclamacao_id or "—" }}</td>
+            <td>{{ l.duracao_ms }}</td>
+            <td>
+              {% if l.status == "erro" %}<span class="badge">erro</span>
+              {% elif l.status == "bloqueado" %}<span class="badge-bloqueado">bloqueado</span>
+              {% else %}<span class="badge-ok">ok</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Erros e falhas</h2>
+      <table>
+        <thead><tr><th>Timestamp</th><th>Ação</th><th>Reclamação</th><th>Detalhes</th></tr></thead>
+        <tbody>
+          {% for l in erros %}
+          <tr>
+            <td>{{ l.timestamp }}</td>
+            <td>{{ l.acao }}</td>
+            <td>{{ l.reclamacao_id or "—" }}</td>
+            <td><span class="badge">{{ l.detalhes.get("erro", l.detalhes) }}</span></td>
+          </tr>
+          {% endfor %}
+          {% if not erros %}
+          <tr><td colspan="4">Nenhum erro registrado nesta execução.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Log bruto (todas as ações)</h2>
+      <input id="filtro" type="text" placeholder="Filtrar por ação, id da reclamação ou status..." onkeyup="filtrarLogs()" />
+      <div class="tabela-scroll">
+        <table id="tabela-logs">
+          <thead><tr><th>Timestamp</th><th>Ação</th><th>Reclamação</th><th>Status</th><th>Duração (ms)</th><th>Detalhes</th></tr></thead>
+          <tbody>
+            {% for l in linhas %}
+            <tr>
+              <td>{{ l.timestamp }}</td>
+              <td>{{ l.acao }}</td>
+              <td>{{ l.reclamacao_id or "—" }}</td>
+              <td>{{ l.status }}</td>
+              <td>{{ l.duracao_ms if l.duracao_ms is not none else "—" }}</td>
+              <td>{{ l.detalhes }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function filtrarLogs() {
+      const termo = document.getElementById("filtro").value.toLowerCase();
+      const linhas = document.querySelectorAll("#tabela-logs tbody tr");
+      linhas.forEach((linha) => {
+        linha.style.display = linha.textContent.toLowerCase().includes(termo) ? "" : "none";
+      });
+    }
+  </script>
+</body>
+</html>

@@ -12,6 +12,7 @@ from finguard.guardrails import (
     aplicar_guardrail_saida,
     verificar_guardrail_entrada,
 )
+from finguard.logging_config import registrar
 from finguard.schemas import Categoria, Produto, Sentimento, Urgencia
 from finguard.state import FinGuardState
 
@@ -28,13 +29,29 @@ _ACOES_POR_URGENCIA = {
 }
 
 
-def _log(agente: str, entrada: str, saida: Any, inicio: float) -> list[dict]:
+def _log(
+    agente: str,
+    entrada: str,
+    saida: Any,
+    inicio: float,
+    *,
+    reclamacao_id: str | None = None,
+    status: str = "ok",
+) -> list[dict]:
+    duracao_ms = round((time.time() - inicio) * 1000, 1)
+    registrar(
+        acao=agente,
+        status=status,
+        duracao_ms=duracao_ms,
+        reclamacao_id=reclamacao_id,
+        detalhes={"entrada_resumida": str(entrada)[:80], "saida_resumida": str(saida)[:160]},
+    )
     return [
         {
             "agente": agente,
             "entrada_resumida": str(entrada)[:80],
             "saida_resumida": str(saida)[:160],
-            "tempo_ms": round((time.time() - inicio) * 1000, 1),
+            "tempo_ms": duracao_ms,
         }
     ]
 
@@ -42,7 +59,14 @@ def _log(agente: str, entrada: str, saida: Any, inicio: float) -> list[dict]:
 def no_guardrail_entrada(state: FinGuardState) -> dict:
     inicio = time.time()
     resultado = verificar_guardrail_entrada(state["texto_original"])
-    logs = _log("guardrail_entrada", state["texto_original"], resultado, inicio)
+    logs = _log(
+        "guardrail_entrada",
+        state["texto_original"],
+        resultado,
+        inicio,
+        reclamacao_id=state.get("id"),
+        status="bloqueado" if resultado.bloqueado else "ok",
+    )
     return {
         "bloqueado": resultado.bloqueado,
         "motivo_bloqueio": resultado.motivo,
@@ -54,7 +78,13 @@ def no_resposta_bloqueio(state: FinGuardState) -> dict:
     inicio = time.time()
     from finguard.guardrails import RESPOSTA_BLOQUEIO
 
-    logs = _log("resposta_bloqueio", state.get("motivo_bloqueio", ""), RESPOSTA_BLOQUEIO, inicio)
+    logs = _log(
+        "resposta_bloqueio",
+        state.get("motivo_bloqueio", ""),
+        RESPOSTA_BLOQUEIO,
+        inicio,
+        reclamacao_id=state.get("id"),
+    )
     return {"acao_recomendada": RESPOSTA_BLOQUEIO, "logs": logs}
 
 
@@ -75,7 +105,7 @@ def no_agente_triagem(state: FinGuardState) -> dict:
             "resumo": "[modo --sem-llm] classificação não executada.",
         }
 
-    logs = _log("agente_triagem", texto, classificacao, inicio)
+    logs = _log("agente_triagem", texto, classificacao, inicio, reclamacao_id=state.get("id"))
     return {"classificacao": classificacao, "logs": logs}
 
 
@@ -104,7 +134,7 @@ def no_agente_risco(state: FinGuardState) -> dict:
         nivel, justificativa = nivel_heuristico, justificativa_heuristica
 
     saida = {"nivel": nivel, "justificativa": justificativa}
-    logs = _log("agente_risco", texto, saida, inicio)
+    logs = _log("agente_risco", texto, saida, inicio, reclamacao_id=state.get("id"))
     return {"risco_nivel": nivel, "risco_justificativa": justificativa, "logs": logs}
 
 
@@ -117,7 +147,7 @@ def no_agente_relatorio(state: FinGuardState) -> dict:
     if state.get("risco_nivel") in ("Alto", "Crítico"):
         acao += " Escalar para compliance/jurídico dado o nível de risco identificado pelo agente de risco."
 
-    logs = _log("agente_relatorio", str(classificacao), acao, inicio)
+    logs = _log("agente_relatorio", str(classificacao), acao, inicio, reclamacao_id=state.get("id"))
     return {"classificacao": classificacao, "acao_recomendada": acao, "logs": logs}
 
 
@@ -139,7 +169,13 @@ def no_guardrail_saida(state: FinGuardState) -> dict:
     if acao_recomendada:
         acao_recomendada = aplicar_guardrail_saida(acao_recomendada)
 
-    logs = _log("guardrail_saida", str(classificacao), classificacao.get("resumo", ""), inicio)
+    logs = _log(
+        "guardrail_saida",
+        str(classificacao),
+        classificacao.get("resumo", ""),
+        inicio,
+        reclamacao_id=state.get("id"),
+    )
     return {
         "classificacao": classificacao,
         "risco_justificativa": risco_justificativa,
