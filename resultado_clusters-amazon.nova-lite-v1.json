@@ -1,0 +1,124 @@
+{
+  "k_escolhido": 6,
+  "avaliacao_k": [
+    {
+      "k": 2,
+      "inercia": 428.62958881321947,
+      "silhouette": 0.037962476778068056
+    },
+    {
+      "k": 3,
+      "inercia": 414.31283149812964,
+      "silhouette": 0.04099762788143256
+    },
+    {
+      "k": 4,
+      "inercia": 403.13806948373224,
+      "silhouette": 0.050969827719218916
+    },
+    {
+      "k": 5,
+      "inercia": 396.2413405615249,
+      "silhouette": 0.051682230215828504
+    },
+    {
+      "k": 6,
+      "inercia": 390.26278549982646,
+      "silhouette": 0.051913577057698224
+    },
+    {
+      "k": 7,
+      "inercia": 385.92503995836205,
+      "silhouette": 0.05030725949411045
+    },
+    {
+      "k": 8,
+      "inercia": 381.54342312011084,
+      "silhouette": 0.0477688664815133
+    },
+    {
+      "k": 9,
+      "inercia": 377.9443608104808,
+      "silhouette": 0.046029506204045174
+    },
+    {
+      "k": 10,
+      "inercia": 374.4749085188782,
+      "silhouette": 0.048478648493456455
+    }
+  ],
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "rotulo": "cartão / crédito / cancelamento",
+      "tamanho": 53,
+      "ids_exemplo": [
+        "REC-2026-00566",
+        "REC-2026-00495",
+        "REC-2026-00147",
+        "REC-2026-00223",
+        "REC-2026-00605"
+      ]
+    },
+    {
+      "cluster_id": 1,
+      "rotulo": "conta / banco / seguro",
+      "tamanho": 105,
+      "ids_exemplo": [
+        "REC-2026-00634",
+        "REC-2026-00266",
+        "REC-2026-00558",
+        "REC-2026-00623",
+        "REC-2026-00575"
+      ]
+    },
+    {
+      "cluster_id": 2,
+      "rotulo": "pelo / alguem / cancelar",
+      "tamanho": 70,
+      "ids_exemplo": [
+        "REC-2026-00488",
+        "REC-2026-00350",
+        "REC-2026-00287",
+        "REC-2026-00177",
+        "REC-2026-00591"
+      ]
+    },
+    {
+      "cluster_id": 3,
+      "rotulo": "atendimento / pelo / resolver",
+      "tamanho": 67,
+      "ids_exemplo": [
+        "REC-2026-00246",
+        "REC-2026-00406",
+        "REC-2026-00480",
+        "REC-2026-00476",
+        "REC-2026-00359"
+      ]
+    },
+    {
+      "cluster_id": 4,
+      "rotulo": "dados / preciso / reclamações",
+      "tamanho": 37,
+      "ids_exemplo": [
+        "REC-2026-00253",
+        "REC-2026-00384",
+        "REC-2026-00546",
+        "REC-2026-00487",
+        "REC-2026-00505"
+      ]
+    },
+    {
+      "cluster_id": 5,
+      "rotulo": "banco / conta / dinheiro",
+      "tamanho": 168,
+      "ids_exemplo": [
+        "REC-2026-00146",
+        "REC-2026-00185",
+        "REC-2026-00509",
+        "REC-2026-00632",
+        "REC-2026-00457"
+      ]
+    }
+  ]
+}

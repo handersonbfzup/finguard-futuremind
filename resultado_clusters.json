@@ -1,0 +1,172 @@
+{
+  "k_escolhido": 10,
+  "avaliacao_k": [
+    {
+      "k": 2,
+      "inercia": 345.6300601392214,
+      "silhouette": 0.04085224775747095
+    },
+    {
+      "k": 3,
+      "inercia": 334.75369626515163,
+      "silhouette": 0.03603931029139821
+    },
+    {
+      "k": 4,
+      "inercia": 324.9940033277029,
+      "silhouette": 0.04457252976796558
+    },
+    {
+      "k": 5,
+      "inercia": 317.4329485718255,
+      "silhouette": 0.04866995581625181
+    },
+    {
+      "k": 6,
+      "inercia": 310.02919963547043,
+      "silhouette": 0.05352399886665574
+    },
+    {
+      "k": 7,
+      "inercia": 304.5133618358211,
+      "silhouette": 0.052288070399650305
+    },
+    {
+      "k": 8,
+      "inercia": 299.3881999202714,
+      "silhouette": 0.05738177911719393
+    },
+    {
+      "k": 9,
+      "inercia": 294.9794636512679,
+      "silhouette": 0.05520215101623305
+    },
+    {
+      "k": 10,
+      "inercia": 290.31298398348787,
+      "silhouette": 0.05865453252836029
+    }
+  ],
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "rotulo": "Reclamações sobre cobrança indevida de anuidade.",
+      "tamanho": 31,
+      "ids_exemplo": [
+        "REC-2026-00566",
+        "REC-2026-00495",
+        "REC-2026-00366",
+        "REC-2026-00200",
+        "REC-2026-00510"
+      ]
+    },
+    {
+      "cluster_id": 1,
+      "rotulo": "Atendimento ineficiente e demorado",
+      "tamanho": 67,
+      "ids_exemplo": [
+        "REC-2026-00246",
+        "REC-2026-00406",
+        "REC-2026-00476",
+        "REC-2026-00471",
+        "REC-2026-00488"
+      ]
+    },
+    {
+      "cluster_id": 2,
+      "rotulo": "Faturas com compras não reconhecidas",
+      "tamanho": 31,
+      "ids_exemplo": [
+        "REC-2026-00147",
+        "REC-2026-00223",
+        "REC-2026-00317",
+        "REC-2026-00496",
+        "REC-2026-00640"
+      ]
+    },
+    {
+      "cluster_id": 3,
+      "rotulo": "Problemas com serviços bancários e aplicativos",
+      "tamanho": 66,
+      "ids_exemplo": [
+        "REC-2026-00318",
+        "REC-2026-00350",
+        "REC-2026-00574",
+        "REC-2026-00359",
+        "REC-2026-00177"
+      ]
+    },
+    {
+      "cluster_id": 4,
+      "rotulo": "Reclamações pedem dados confidenciais",
+      "tamanho": 40,
+      "ids_exemplo": [
+        "REC-2026-00253",
+        "REC-2026-00384",
+        "REC-2026-00546",
+        "REC-2026-00487",
+        "REC-2026-00505"
+      ]
+    },
+    {
+      "cluster_id": 5,
+      "rotulo": "Reclamações sobre acesso não autorizado e fraudes.",
+      "tamanho": 34,
+      "ids_exemplo": [
+        "REC-2026-00480",
+        "REC-2026-00486",
+        "REC-2026-00556",
+        "REC-2026-00394",
+        "REC-2026-00630"
+      ]
+    },
+    {
+      "cluster_id": 6,
+      "rotulo": "Cobranças indevidas e tarifas não autorizadas.",
+      "tamanho": 63,
+      "ids_exemplo": [
+        "REC-2026-00609",
+        "REC-2026-00354",
+        "REC-2026-00548",
+        "REC-2026-00531",
+        "REC-2026-00491"
+      ]
+    },
+    {
+      "cluster_id": 7,
+      "rotulo": "Reclamações sobre empréstimos incorretos.",
+      "tamanho": 60,
+      "ids_exemplo": [
+        "REC-2026-00146",
+        "REC-2026-00457",
+        "REC-2026-00161",
+        "REC-2026-00266",
+        "REC-2026-00443"
+      ]
+    },
+    {
+      "cluster_id": 8,
+      "rotulo": "Reclamações sobre cobranças indevidas e seguros não cumpridos",
+      "tamanho": 66,
+      "ids_exemplo": [
+        "REC-2026-00509",
+        "REC-2026-00632",
+        "REC-2026-00634",
+        "REC-2026-00426",
+        "REC-2026-00284"
+      ]
+    },
+    {
+      "cluster_id": 9,
+      "rotulo": "Taxas indevidas e cobranças não autorizadas.",
+      "tamanho": 42,
+      "ids_exemplo": [
+        "REC-2026-00185",
+        "REC-2026-00557",
+        "REC-2026-00626",
+        "REC-2026-00296",
+        "REC-2026-00493"
+      ]
+    }
+  ]
+}
