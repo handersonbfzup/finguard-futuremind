@@ -2,6 +2,9 @@ source venv/bin/activate
 
 python3 main.py --sem-llm, que processa tudo sem chamar o Bedrock — não gasta nada e não precisa de credenciais)
 
+python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1 --limit 100
+
+
 aws sso login --profile bedrock
 
 # 1. Sonnet 5 (candidato a substituir o Sonnet no agente de risco)
