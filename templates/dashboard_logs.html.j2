@@ -44,6 +44,15 @@
     <div class="cartao"><div class="numero">{{ tokens_totais.tokens_entrada }}</div><div class="rotulo">Tokens de entrada</div></div>
     <div class="cartao"><div class="numero">{{ tokens_totais.tokens_saida }}</div><div class="rotulo">Tokens de saída</div></div>
     <div class="cartao"><div class="numero">{{ tokens_totais.tokens_total }}</div><div class="rotulo">Tokens totais ({{ tokens_totais.chamadas }} chamadas)</div></div>
+    <div class="cartao">
+      {% if tokens_totais.custo_disponivel %}
+      <div class="numero">{{ tokens_totais.custo_brl_fmt }}</div>
+      <div class="rotulo">Custo estimado{% if tokens_totais.custo_parcial %} (parcial*){% endif %}</div>
+      {% else %}
+      <div class="numero">—</div>
+      <div class="rotulo">Sem estimativa de valores</div>
+      {% endif %}
+    </div>
     {% endif %}
   </div>
 
@@ -52,7 +61,7 @@
     <div class="painel" style="grid-column: 1 / -1;">
       <h2>Consumo de tokens por agente</h2>
       <table>
-        <thead><tr><th>Agente</th><th>Modelo</th><th>Chamadas</th><th>Tokens entrada</th><th>Tokens saída</th><th>Tokens total</th><th>Média/chamada</th></tr></thead>
+        <thead><tr><th>Agente</th><th>Modelo</th><th>Chamadas</th><th>Tokens entrada</th><th>Tokens saída</th><th>Tokens total</th><th>Média/chamada</th><th>Custo estimado</th></tr></thead>
         <tbody>
           {% for item in tokens_por_agente %}
           <tr>
@@ -63,10 +72,14 @@
             <td>{{ item.tokens_saida }}</td>
             <td>{{ item.tokens_total }}</td>
             <td>{{ item.media_tokens_chamada }}</td>
+            <td>{% if item.custo_brl_fmt %}{{ item.custo_brl_fmt }}{% else %}<span class="rotulo">sem estimativa de valores</span>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      {% if tokens_totais.custo_parcial %}
+      <p class="subtitulo">* Um ou mais modelos usados não possuem tabela de preço cadastrada; o custo desses agentes fica sem estimativa.</p>
+      {% endif %}
     </div>
 
     <div class="painel" style="grid-column: 1 / -1;">
