@@ -19,6 +19,68 @@ def _ler_linhas(caminho_jsonl: Path) -> list[dict]:
     return linhas
 
 
+_ACOES_BEDROCK = {
+    "chamada_bedrock_triagem": "agente_triagem",
+    "chamada_bedrock_risco": "agente_risco",
+    "chamada_bedrock_rotulagem_cluster": "rotulagem_cluster",
+}
+
+
+def _agregar_tokens(linhas: list[dict]) -> dict:
+    """Agrega consumo de tokens (usage do Converse) por agente e por mensagem a partir dos logs."""
+    linhas_tokens = [
+        linha
+        for linha in linhas
+        if linha["acao"] in _ACOES_BEDROCK and linha.get("detalhes", {}).get("tokens_total") is not None
+    ]
+
+    por_agente: dict[str, dict] = {}
+    modelos_por_agente: dict[str, set] = defaultdict(set)
+    por_mensagem: dict[str, dict] = defaultdict(lambda: {"reclamacao_id": None, "chamadas": 0, "tokens_entrada": 0, "tokens_saida": 0, "tokens_total": 0})
+
+    for linha in linhas_tokens:
+        agente = _ACOES_BEDROCK[linha["acao"]]
+        detalhes = linha["detalhes"]
+        entrada = detalhes.get("tokens_entrada") or 0
+        saida = detalhes.get("tokens_saida") or 0
+        total = detalhes.get("tokens_total") or 0
+
+        agregado_agente = por_agente.setdefault(
+            agente, {"agente": agente, "chamadas": 0, "tokens_entrada": 0, "tokens_saida": 0, "tokens_total": 0}
+        )
+        agregado_agente["chamadas"] += 1
+        agregado_agente["tokens_entrada"] += entrada
+        agregado_agente["tokens_saida"] += saida
+        agregado_agente["tokens_total"] += total
+        if detalhes.get("modelo"):
+            modelos_por_agente[agente].add(detalhes["modelo"])
+
+        reclamacao_id = linha.get("reclamacao_id")
+        if reclamacao_id:
+            agregado_mensagem = por_mensagem[reclamacao_id]
+            agregado_mensagem["reclamacao_id"] = reclamacao_id
+            agregado_mensagem["chamadas"] += 1
+            agregado_mensagem["tokens_entrada"] += entrada
+            agregado_mensagem["tokens_saida"] += saida
+            agregado_mensagem["tokens_total"] += total
+
+    tokens_por_agente = sorted(por_agente.values(), key=lambda item: item["tokens_total"], reverse=True)
+    for item in tokens_por_agente:
+        item["media_tokens_chamada"] = round(item["tokens_total"] / item["chamadas"], 1) if item["chamadas"] else 0.0
+        item["modelos"] = ", ".join(sorted(modelos_por_agente.get(item["agente"], []))) or "—"
+
+    top_mensagens = sorted(por_mensagem.values(), key=lambda item: item["tokens_total"], reverse=True)[:20]
+
+    totais = {
+        "tokens_entrada": sum(item["tokens_entrada"] for item in tokens_por_agente),
+        "tokens_saida": sum(item["tokens_saida"] for item in tokens_por_agente),
+        "tokens_total": sum(item["tokens_total"] for item in tokens_por_agente),
+        "chamadas": sum(item["chamadas"] for item in tokens_por_agente),
+    }
+
+    return {"totais": totais, "por_agente": tokens_por_agente, "top_mensagens": top_mensagens}
+
+
 def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
     """Lê um arquivo de log JSONL de uma execução e gera um dashboard HTML de rastreabilidade."""
     linhas = _ler_linhas(caminho_jsonl)
@@ -63,6 +125,8 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
         None,
     )
 
+    tokens = _agregar_tokens(linhas)
+
     execucao_id = linhas[0]["execucao_id"] if linhas else None
 
     ambiente = Environment(loader=FileSystemLoader(str(RAIZ / "templates")))
@@ -79,5 +143,8 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
         erros=erros,
         mais_lentas=mais_lentas,
         linhas=linhas,
+        tokens_totais=tokens["totais"],
+        tokens_por_agente=tokens["por_agente"],
+        tokens_top_mensagens=tokens["top_mensagens"],
     )
     Path(caminho_saida).write_text(html, encoding="utf-8")

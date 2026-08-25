@@ -65,6 +65,18 @@ def _converse_com_retry(cliente, **kwargs):
             time.sleep(espera)
             tentativa += 1
 
+
+def _extrair_uso_tokens(resposta: dict) -> dict:
+    """Extrai o bloco `usage` do retorno do Converse (campos de cache só existem com Prompt Caching ativo)."""
+    uso = resposta.get("usage", {})
+    return {
+        "tokens_entrada": uso.get("inputTokens"),
+        "tokens_saida": uso.get("outputTokens"),
+        "tokens_total": uso.get("totalTokens"),
+        "tokens_cache_leitura": uso.get("cacheReadInputTokens"),
+        "tokens_cache_escrita": uso.get("cacheWriteInputTokens"),
+    }
+
 _REGRAS_POL_SAC_001 = """
 Regras de referência (Política Interna POL-SAC-001) para calibrar a urgência:
 - Baixa: dúvidas operacionais, insatisfação leve, sem impacto financeiro.
@@ -120,6 +132,7 @@ def classificar_reclamacao(
     modelo_id: str = MODELO_TRIAGEM_PADRAO,
     regiao: str = REGIAO_PADRAO,
     max_tentativas: int = 2,
+    reclamacao_id: str | None = None,
 ) -> ClassificacaoReclamacao:
     """Classifica uma reclamação chamando o Bedrock. Lança exceção se falhar após retries."""
     cliente = _obter_cliente(regiao)
@@ -161,7 +174,8 @@ def classificar_reclamacao(
                 acao="chamada_bedrock_triagem",
                 status="ok",
                 duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
-                detalhes={"modelo": modelo_id, "tentativa": tentativa + 1},
+                reclamacao_id=reclamacao_id,
+                detalhes={"modelo": modelo_id, "tentativa": tentativa + 1, **_extrair_uso_tokens(resposta)},
             )
             return resultado
         except (ValueError, ValidationError, TypeError) as erro:
@@ -170,7 +184,8 @@ def classificar_reclamacao(
                 acao="chamada_bedrock_triagem",
                 status="erro",
                 duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
-                detalhes={"modelo": modelo_id, "tentativa": tentativa + 1, "erro": str(erro)},
+                reclamacao_id=reclamacao_id,
+                detalhes={"modelo": modelo_id, "tentativa": tentativa + 1, "erro": str(erro), **_extrair_uso_tokens(resposta)},
                 nivel="WARNING",
             )
 
@@ -204,6 +219,7 @@ def analisar_risco(
     nivel_heuristico: str,
     modelo_id: str = MODELO_RISCO_PADRAO,
     regiao: str = REGIAO_PADRAO,
+    reclamacao_id: str | None = None,
 ) -> tuple[str, str]:
     """Analisa o risco de uma reclamação usando um modelo mais robusto que o de triagem."""
     cliente = _obter_cliente(regiao)
@@ -228,6 +244,7 @@ def analisar_risco(
             acao="chamada_bedrock_risco",
             status="erro",
             duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
+            reclamacao_id=reclamacao_id,
             detalhes={"modelo": modelo_id, "erro": str(erro)},
             nivel="ERROR",
         )
@@ -237,7 +254,8 @@ def analisar_risco(
         acao="chamada_bedrock_risco",
         status="ok",
         duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
-        detalhes={"modelo": modelo_id},
+        reclamacao_id=reclamacao_id,
+        detalhes={"modelo": modelo_id, **_extrair_uso_tokens(resposta)},
     )
     return dados["nivel"], dados["justificativa"]
 
@@ -257,6 +275,7 @@ def rotular_cluster(
     textos_amostra: list[str],
     modelo_id: str = MODELO_TRIAGEM_PADRAO,
     regiao: str = REGIAO_PADRAO,
+    cluster_id: int | None = None,
 ) -> str:
     """Pede a um modelo leve (Haiku) um rótulo curto para um cluster, a partir de uma
     amostra de reclamações representativas — tarefa simples, não precisa do modelo mais caro.
@@ -280,7 +299,7 @@ def rotular_cluster(
             acao="chamada_bedrock_rotulagem_cluster",
             status="erro",
             duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
-            detalhes={"modelo": modelo_id, "erro": str(erro)},
+            detalhes={"modelo": modelo_id, "cluster_id": cluster_id, "erro": str(erro)},
             nivel="ERROR",
         )
         raise
@@ -289,6 +308,6 @@ def rotular_cluster(
         acao="chamada_bedrock_rotulagem_cluster",
         status="ok",
         duracao_ms=round((time.time() - inicio_chamada) * 1000, 1),
-        detalhes={"modelo": modelo_id},
+        detalhes={"modelo": modelo_id, "cluster_id": cluster_id, **_extrair_uso_tokens(resposta)},
     )
     return dados["rotulo"]

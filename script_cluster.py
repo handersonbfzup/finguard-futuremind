@@ -54,7 +54,7 @@ def processar_clusters(caminho_csv: str, usar_llm: bool, k_forcado: int | None):
     clusters = []
     for cluster_id, itens in sorted(grupos.items()):
         amostra = [item["texto"] for item in itens[:8]]
-        rotulo = rotular_cluster(amostra) if usar_llm else rotular_localmente(amostra)
+        rotulo = rotular_cluster(amostra, cluster_id=cluster_id) if usar_llm else rotular_localmente(amostra)
         registrar(
             acao="cluster_rotulagem",
             detalhes={"cluster_id": cluster_id, "tamanho": len(itens), "rotulo": rotulo},

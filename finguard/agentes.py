@@ -95,7 +95,7 @@ def no_agente_triagem(state: FinGuardState) -> dict:
     if state.get("_usar_llm", True):
         from finguard.bedrock_client import classificar_reclamacao
 
-        classificacao = classificar_reclamacao(texto).model_dump(mode="json")
+        classificacao = classificar_reclamacao(texto, reclamacao_id=state.get("id")).model_dump(mode="json")
     else:
         classificacao = {
             "categoria": Categoria.OUTROS.value,
@@ -128,7 +128,7 @@ def no_agente_risco(state: FinGuardState) -> dict:
         from finguard.bedrock_client import analisar_risco
 
         nivel, justificativa = analisar_risco(
-            texto, state.get("classificacao") or {}, nivel_heuristico
+            texto, state.get("classificacao") or {}, nivel_heuristico, reclamacao_id=state.get("id")
         )
     else:
         nivel, justificativa = nivel_heuristico, justificativa_heuristica
