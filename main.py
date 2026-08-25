@@ -182,7 +182,7 @@ def main() -> None:
     parser.add_argument(
         "--workers",
         type=int,
-        default=8,
+        default=16,
         help="Nº de reclamações processadas em paralelo quando usando LLM (chamadas Bedrock são I/O-bound)",
     )
     parser.add_argument("--aws-profile", default=None, help="Profile AWS a ser usado nas chamadas Bedrock (ex.: bedrock)")

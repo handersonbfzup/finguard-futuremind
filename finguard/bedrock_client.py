@@ -140,7 +140,7 @@ def classificar_reclamacao(
             modelId=modelo_id,
             system=[{"text": _PROMPT_SISTEMA}],
             messages=mensagens,
-            inferenceConfig={"temperature": 0, "maxTokens": 500},
+            inferenceConfig={"temperature": 0, "maxTokens": 400},
         )
         texto_resposta = resposta["output"]["message"]["content"][0]["text"]
 
