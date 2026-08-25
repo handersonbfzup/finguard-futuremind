@@ -1,0 +1,8 @@
+boto3
+langchain-aws
+langchain-core
+langgraph
+pydantic
+pandas
+scikit-learn
+jinja2

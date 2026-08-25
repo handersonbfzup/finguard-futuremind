@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>FinGuard — Dashboard de Reclamações</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; background: #f4f6f8; color: #1b2733; margin: 0; padding: 32px; }
+  h1 { margin-bottom: 4px; }
+  .subtitulo { color: #5b6b79; margin-top: 0; }
+  .cartoes { display: flex; gap: 16px; margin: 24px 0; flex-wrap: wrap; }
+  .cartao { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); min-width: 160px; }
+  .cartao .numero { font-size: 28px; font-weight: 700; }
+  .cartao .rotulo { color: #5b6b79; font-size: 13px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .painel { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .painel h2 { font-size: 16px; margin-top: 0; }
+  .barra-linha { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
+  .barra-rotulo { width: 140px; flex-shrink: 0; }
+  .barra-fundo { flex: 1; background: #eef1f4; border-radius: 4px; overflow: hidden; height: 18px; }
+  .barra-preenchida { background: #2f6fed; height: 100%; }
+  .barra-valor { width: 32px; text-align: right; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eef1f4; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #ffe3e3; color: #a30d0d; }
+  .badge-aviso { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #fff4e5; color: #8a4b00; }
+</style>
+</head>
+<body>
+  <h1>FinGuard — Dashboard de Reclamações</h1>
+  <p class="subtitulo">Nível 2 · Orquestrador de Análise (Triagem → Risco → Relatório)</p>
+
+  <div class="cartoes">
+    <div class="cartao"><div class="numero">{{ total }}</div><div class="rotulo">Total processadas</div></div>
+    <div class="cartao"><div class="numero">{{ total_classificados }}</div><div class="rotulo">Classificadas</div></div>
+    <div class="cartao"><div class="numero">{{ total_bloqueados }}</div><div class="rotulo">Bloqueadas (guardrail)</div></div>
+    <div class="cartao"><div class="numero">{{ total_falhas_pipeline }}</div><div class="rotulo">Falhas de pipeline</div></div>
+  </div>
+
+  <div class="grade">
+    <div class="painel">
+      <h2>Categoria</h2>
+      {% for nome, qtd in contagem_categoria %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total_classificados * 100) if total_classificados else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel">
+      <h2>Produto</h2>
+      {% for nome, qtd in contagem_produto %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total_classificados * 100) if total_classificados else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel">
+      <h2>Sentimento</h2>
+      {% for nome, qtd in contagem_sentimento %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total_classificados * 100) if total_classificados else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel">
+      <h2>Urgência</h2>
+      {% for nome, qtd in contagem_urgencia %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total_classificados * 100) if total_classificados else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel">
+      <h2>Nível de Risco (agente_risco)</h2>
+      {% for nome, qtd in contagem_risco %}
+      <div class="barra-linha">
+        <div class="barra-rotulo">{{ nome }}</div>
+        <div class="barra-fundo"><div class="barra-preenchida" style="width: {{ (qtd / total_classificados * 100) if total_classificados else 0 }}%"></div></div>
+        <div class="barra-valor">{{ qtd }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Reclamações críticas (risco Alto/Crítico) — parecer e ação recomendada</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Canal</th><th>Risco</th><th>Justificativa</th><th>Ação recomendada</th></tr></thead>
+        <tbody>
+          {% for r in criticos %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.canal }}</td>
+            <td><span class="badge">{{ r.risco_nivel }}</span></td>
+            <td>{{ r.risco_justificativa }}</td>
+            <td>{{ r.acao_recomendada }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Reclamações bloqueadas pelo guardrail de entrada</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Canal</th><th>Motivo</th></tr></thead>
+        <tbody>
+          {% for r in bloqueados %}
+          <tr><td>{{ r.id }}</td><td>{{ r.canal }}</td><td><span class="badge">{{ r.motivo_bloqueio }}</span></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Falhas de pipeline (ex.: autenticação AWS/Bedrock)</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Canal</th><th>Erro</th></tr></thead>
+        <tbody>
+          {% for r in falhas_pipeline %}
+          <tr><td>{{ r.id }}</td><td>{{ r.canal }}</td><td><span class="badge-aviso">{{ r.motivo_bloqueio }}</span></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
