@@ -1,64 +1,85 @@
-Agora tenho um panorama completo do projeto. Aqui está a análise:
+# FinGuard Future Minds
 
-## O que é o FinGuard
+Projeto do desafio Future Minds para análise de reclamações bancárias com pipeline multiagente, guardrails e rastreabilidade.
 
-É a solução do desafio **Future Minds** (FinTech "FinGuard"): um pipeline de IA multiagente que lê reclamações bancárias de um CSV, filtra tentativas de ataque (prompt injection/jailbreak), classifica cada reclamação (categoria, produto, sentimento, urgência), avalia o **risco regulatório** e gera um relatório final + dashboard — tudo protegido por guardrails de entrada e saída, seguindo a política interna **POL-SAC-001**.
+## Visão geral
 
-## Arquitetura: grafo de agentes (LangGraph)
+O fluxo principal lê reclamações de um CSV e processa cada item em um grafo LangGraph com cinco etapas:
 
-O coração do sistema é grafo.py, um `StateGraph` do LangGraph com este fluxo:
+1. guardrail_entrada: bloqueia prompt injection, tentativa de exfiltração e conteúdo malicioso.
+2. agente_triagem: classifica categoria, produto, sentimento, urgência e gera resumo.
+3. agente_risco: calcula nível de risco regulatório/reputacional.
+4. agente_relatorio: define ação recomendada.
+5. guardrail_saida: mascara dados sensíveis na saída.
 
-```mermaid
-flowchart TD
-    S([__start__]) --> GE[guardrail_entrada]
-    GE -- bloqueado --> RB[resposta_bloqueio] --> E([__end__])
-    GE -- livre --> AT[agente_triagem]
-    AT --> AR[agente_risco]
-    AR --> AREL[agente_relatorio]
-    AREL --> GS[guardrail_saida]
-    GS --> E
+Se a entrada for bloqueada, o fluxo segue para resposta_bloqueio e encerra sem chamar LLM.
+
+## Estrutura principal
+
+- main.py: execução do pipeline principal e geração de saídas.
+- finguard/grafo.py: montagem do fluxo no LangGraph.
+- finguard/agentes.py: implementação dos nós do grafo.
+- finguard/guardrails.py: guardrails de entrada e saída.
+- finguard/bedrock_client.py: chamadas Bedrock e parsing das respostas.
+- finguard/dashboard_logs.py: métricas e dashboard de rastreabilidade.
+- script_cluster.py: bônus de clusterização por similaridade.
+- templates/dashboard.html.j2: template do dashboard funcional.
+- templates/dashboard_logs.html.j2: template do dashboard de logs/tokens.
+
+## Modelos padrão
+
+Atualmente o projeto está configurado para usar Amazon Nova Lite v1 em triagem e risco:
+
+- MODELO_TRIAGEM_PADRAO = amazon.nova-lite-v1:0
+- MODELO_RISCO_PADRAO = amazon.nova-lite-v1:0
+
+Esses defaults ficam em finguard/bedrock_client.py.
+
+## Como executar
+
+### 1) Ambiente
+
+Use o Python da venv do projeto para evitar incompatibilidades de dependências.
+
+### 2) Execução sem LLM (offline)
+
+```bash
+venv/bin/python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --sem-llm
 ```
 
-1. **`guardrail_entrada`** (guardrails.py) — regex heurístico que bloqueia prompt injection, exfiltração de dados, jailbreak, ameaças, ANTES de gastar qualquer chamada de LLM.
-2. **`resposta_bloqueio`** — se bloqueado, gera resposta padrão e encerra (não chega a classificar).
-3. **`agente_triagem`** — classifica a reclamação via Bedrock (Claude 3.5 **Haiku**, modelo barato) em categoria/produto/sentimento/urgência (schemas.py define os enums oficiais).
-4. **`agente_risco`** — roda heurística de regras primeiro (canal Banco Central/Procon = crítico automático; palavras-gatilho = alto) e depois o LLM (Claude 3.5 **Sonnet**, mais robusto) só pode **subir** o nível, nunca baixar — estratégia de custo + segurança.
-5. **`agente_relatorio`** — define a ação recomendada conforme urgência (prazos da POL-SAC-001) e escala para compliance se risco Alto/Crítico.
-6. **`guardrail_saida`** — última barreira: mascara PII (CPF, conta, telefone) e linguagem imprópria em qualquer texto gerado pelos agentes antes de sair.
+### 3) Execução com Bedrock
 
-Cada nó grava logs (`agente`, entrada/saída resumidas, tempo em ms) acumulados em `state["logs"]` para rastreabilidade.
+```bash
+venv/bin/python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1
+```
 
-## Estrutura de arquivos
+Parâmetros úteis da CLI:
 
-| Arquivo | Papel |
-|---|---|
-| main.py | CLI principal: lê CSV → roda o grafo linha a linha → salva resultado_analise.json + dashboard.html |
-| state.py | `FinGuardState` (TypedDict compartilhado entre nós) |
-| guardrails.py | Guardrails de entrada/saída (regex) |
-| bedrock_client.py | Chamadas reais à AWS Bedrock (`classificar_reclamacao`, `analisar_risco`, `rotular_cluster`) |
-| schemas.py | Enums oficiais + modelos Pydantic de saída |
-| embeddings.py / clustering.py | Bônus: embeddings (Titan ou TF-IDF local) + K-Means para agrupar reclamações similares |
-| script_cluster.py | CLI do bônus de clusterização → resultado_clusters.json |
-| script_cleanup.py | Limpeza segura (dry-run por padrão) de recursos SageMaker |
-| dashboard.html.j2 | Template Jinja2 do dashboard visual |
-| adr_finguard.html | ADR (Architecture Decision Record) navegável justificando as escolhas |
-| agents/ | Documentação/spec conceitual dos "agentes" (orquestrador, anti-injection, classificação, LGPD, resposta) — desenho de referência, não código executável |
+- --limit N: limita quantidade de linhas processadas.
+- --workers N: paralelismo para chamadas LLM (default: 16).
+- --out-json arquivo.json: caminho da saída JSON.
+- --out-html arquivo.html: caminho do dashboard funcional.
+- --out-html-logs arquivo.html: caminho do dashboard de rastreabilidade.
 
-## Passo a passo para rodar
+## Saídas geradas
 
-1. **Ambiente**: venv já existe; dependências em requirements.txt (boto3, langchain-aws, langgraph, pydantic, pandas, scikit-learn, jinja2).
-2. **Sem credenciais AWS** (modo atual): 
-   ```bash
-   python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --sem-llm
-   ```
-   Roda o grafo inteiro com heurísticas (sem chamar Bedrock) → gera resultado_analise.json + dashboard.html.
-3. **Com credenciais AWS configuradas** (`aws configure`): rode sem `--sem-llm` para classificação e análise de risco reais via Bedrock (Haiku + Sonnet).
-4. **Bônus de clusterização**:
-   ```bash
-   python3 script_cluster.py --sem-llm
-   ```
-   Gera embeddings (TF-IDF local ou Titan), escolhe `k` ótimo via Silhouette Score, roda K-Means → resultado_clusters.json.
-5. **Limpeza de recursos** (se usou SageMaker): `python3 script_cleanup.py` (dry-run) ou `--confirm` para de fato remover.
-6. **Resultado**: abrir dashboard.html no navegador para ver painéis de categoria/produto/sentimento/urgência/risco e tabela de reclamações críticas; adr_finguard.html para entender as decisões de arquitetura.
+- resultado_analise.json: resultado consolidado por reclamação.
+- dashboard.html: visão analítica de classificação e risco.
+- dashboard_logs.html: métricas de execução, latência, erros e tokens.
+- logs/execucao_*.jsonl: logs estruturados por execução.
 
-**Pendência atual**: ainda não há credenciais AWS configuradas neste ambiente, então a classificação/risco via Bedrock nunca rodou de ponta a ponta — só o modo `--sem-llm` foi validado (33 bloqueadas, 141 com risco Alto/Crítico em 500 linhas).
+## Bônus de clusterização
+
+Sem LLM:
+
+```bash
+venv/bin/python3 script_cluster.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --sem-llm
+```
+
+Com Bedrock:
+
+```bash
+venv/bin/python3 script_cluster.py --csv "dados/dataset_finguard_desafio_3 (5).csv"
+```
+
+Saída: resultado_clusters.json.
