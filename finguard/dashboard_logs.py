@@ -30,8 +30,12 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
 
     por_acao = Counter(linha["acao"] for linha in linhas)
 
+    # Eventos "resumo" (ex.: duração total da execução) não são ações individuais e não
+    # devem entrar nas comparações de latência por ação/top mais lentas.
+    linhas_acao = [linha for linha in linhas if linha.get("tipo", "acao") != "resumo"]
+
     duracoes_por_acao: dict[str, list[float]] = defaultdict(list)
-    for linha in linhas:
+    for linha in linhas_acao:
         if linha.get("duracao_ms") is not None:
             duracoes_por_acao[linha["acao"]].append(linha["duracao_ms"])
 
@@ -49,10 +53,15 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
     erros = sorted((linha for linha in linhas if linha["status"] == "erro"), key=lambda linha: linha["timestamp"])
 
     mais_lentas = sorted(
-        (linha for linha in linhas if linha.get("duracao_ms") is not None),
+        (linha for linha in linhas_acao if linha.get("duracao_ms") is not None),
         key=lambda linha: linha["duracao_ms"],
         reverse=True,
     )[:20]
+
+    duracao_total_ms = next(
+        (linha["duracao_ms"] for linha in linhas if linha["acao"] == "execucao_cli_fim" and linha.get("duracao_ms") is not None),
+        None,
+    )
 
     execucao_id = linhas[0]["execucao_id"] if linhas else None
 
@@ -64,6 +73,7 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
         total=total,
         total_erros=total_erros,
         taxa_erro=round(taxa_erro, 1),
+        duracao_total_ms=duracao_total_ms,
         contagem_acao=por_acao.most_common(),
         latencia_por_acao=latencia_por_acao,
         erros=erros,

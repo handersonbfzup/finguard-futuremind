@@ -37,8 +37,13 @@ def registrar(
     reclamacao_id: str | None = None,
     detalhes: dict | None = None,
     nivel: str = "INFO",
+    tipo: str = "acao",
 ) -> None:
-    """Grava uma linha de log estruturado para uma ação executada (thread-safe)."""
+    """Grava uma linha de log estruturado para uma ação executada (thread-safe).
+
+    `tipo="resumo"` identifica eventos agregados (ex.: duração total da execução), que
+    não devem ser comparados/rankeados junto com latências de ações individuais.
+    """
     if _arquivo_execucao is None:
         iniciar_execucao()
 
@@ -47,6 +52,7 @@ def registrar(
         "execucao_id": _execucao_id,
         "nivel": nivel,
         "acao": acao,
+        "tipo": tipo,
         "reclamacao_id": reclamacao_id,
         "status": status,
         "duracao_ms": duracao_ms,

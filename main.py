@@ -207,7 +207,11 @@ def main() -> None:
         print(f"Executando com AWS profile={profile_ativo} | region={regiao_ativa}")
 
     inicio = time.time()
-    registrar(acao="execucao_cli_inicio", detalhes={"csv": args.csv, "limite": args.limit, "usar_llm": not args.sem_llm, "workers": args.workers})
+    registrar(
+        acao="execucao_cli_inicio",
+        tipo="resumo",
+        detalhes={"csv": args.csv, "limite": args.limit, "usar_llm": not args.sem_llm, "workers": args.workers},
+    )
     resultados = processar_csv(args.csv, args.limit, usar_llm=not args.sem_llm, workers=args.workers)
     salvar_json(resultados, args.out_json)
     gerar_dashboard(resultados, args.out_html)
@@ -225,6 +229,7 @@ def main() -> None:
     total_criticos = sum(1 for r in resultados if r.risco_nivel in ("Alto", "Crítico"))
     registrar(
         acao="execucao_cli_fim",
+        tipo="resumo",
         duracao_ms=round(duracao * 1000, 1),
         detalhes={
             "total": len(resultados),

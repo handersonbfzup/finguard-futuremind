@@ -12,15 +12,21 @@ permitir os modelos Anthropic desejados.
 """
 
 import json
+import random
 import threading
 import time
 
 import boto3
+from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
 from finguard.guardrails import mascarar_dados_sensiveis
 from finguard.logging_config import registrar
 from finguard.schemas import ClassificacaoReclamacao
+
+_CODIGOS_THROTTLE = {"ThrottlingException", "TooManyRequestsException"}
+_MAX_TENTATIVAS_THROTTLE = 5
+_BACKOFF_BASE_S = 1.0
 
 MODELO_TRIAGEM_PADRAO = "amazon.nova-lite-v1:0"
 MODELO_RISCO_PADRAO = "amazon.nova-lite-v1:0"
@@ -43,6 +49,21 @@ def _obter_cliente(regiao: str):
                 cliente = boto3.client("bedrock-runtime", region_name=regiao)
                 _clientes_bedrock[regiao] = cliente
     return cliente
+
+
+def _converse_com_retry(cliente, **kwargs):
+    """Chama bedrock-runtime.converse com backoff exponencial para throttling do serviço."""
+    tentativa = 0
+    while True:
+        try:
+            return cliente.converse(**kwargs)
+        except ClientError as erro:
+            codigo = erro.response.get("Error", {}).get("Code", "")
+            if codigo not in _CODIGOS_THROTTLE or tentativa >= _MAX_TENTATIVAS_THROTTLE - 1:
+                raise
+            espera = _BACKOFF_BASE_S * (2**tentativa) + random.uniform(0, 0.5)
+            time.sleep(espera)
+            tentativa += 1
 
 _REGRAS_POL_SAC_001 = """
 Regras de referência (Política Interna POL-SAC-001) para calibrar a urgência:
@@ -114,7 +135,8 @@ def classificar_reclamacao(
                 }
             )
 
-        resposta = cliente.converse(
+        resposta = _converse_com_retry(
+            cliente,
             modelId=modelo_id,
             system=[{"text": _PROMPT_SISTEMA}],
             messages=mensagens,
@@ -183,7 +205,8 @@ def analisar_risco(
         f"Nível heurístico preliminar: {nivel_heuristico}"
     )
     try:
-        resposta = cliente.converse(
+        resposta = _converse_com_retry(
+            cliente,
             modelId=modelo_id,
             system=[{"text": _PROMPT_RISCO}],
             messages=[{"role": "user", "content": [{"text": mensagem}]}],
@@ -234,7 +257,8 @@ def rotular_cluster(
     amostra = "\n".join(f"- {t}" for t in textos_amostra)
     mensagem = f"<reclamacoes>\n{amostra}\n</reclamacoes>"
     try:
-        resposta = cliente.converse(
+        resposta = _converse_com_retry(
+            cliente,
             modelId=modelo_id,
             system=[{"text": _PROMPT_ROTULAGEM_CLUSTER}],
             messages=[{"role": "user", "content": [{"text": mensagem}]}],

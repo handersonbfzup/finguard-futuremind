@@ -37,6 +37,9 @@
     <div class="cartao"><div class="numero">{{ total }}</div><div class="rotulo">Ações registradas</div></div>
     <div class="cartao"><div class="numero">{{ total_erros }}</div><div class="rotulo">Ações com erro</div></div>
     <div class="cartao"><div class="numero">{{ taxa_erro }}%</div><div class="rotulo">Taxa de erro</div></div>
+    {% if duracao_total_ms is not none %}
+    <div class="cartao"><div class="numero">{{ "%.1f"|format(duracao_total_ms / 1000) }}s</div><div class="rotulo">Duração total da execução</div></div>
+    {% endif %}
   </div>
 
   <div class="grade">
