@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinGuard - Painel Executivo & Infográfico de Análise Agêntica</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+    }
+    .chart-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      height: 320px;
+      max-height: 380px;
+    }
+    @media (min-width: 768px) {
+      .chart-container {
+        height: 350px;
+      }
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid #E2E8F0;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+<!-- COLOR PALETTE: Vibrant Tech & Compliance (#0F172A, #2563EB, #06B6D4, #10B981, #F59E0B, #EF4444, #F8FAFC) -->
+
+<!-- NARRATIVE PLAN:
+1. Executive Header & KPIs: Highlighting 500 dataset complaints, Bacen/Procon heuristic critical floor, current Nova Lite runtime model, and block rate observed in resultado_analise.json.
+2. Section 1 - Operational Overview: Categorical and Channel distribution aligned with POL-SAC-001 guidelines.
+3. Section 2 - Multi-Agent Architecture (LangGraph): Pure HTML/CSS flow diagram showing pass/block logic, state transitions, and latency metrics.
+4. Section 3 - Security & Cyber Defense: Analysis of dataset adversarial attacks (REC-2026-00435, REC-2026-00413, etc.) blocked by the local regex guardrail (finguard/guardrails.py); official Bedrock Guardrails integration is still pending.
+5. Section 4 - Financial Governance & Model Routing: Amazon Nova Lite v1 (current runtime for both stages) vs. Claude 3.5 Haiku / Claude Sonnet 4.5 (reference design, BRL pricing from finguard/dashboard_logs.py).
+6. Section 5 - Unsupervised Machine Learning (bonus, local scikit-learn K-Means via script_cluster.py, no SageMaker): clustering analysis, Silhouette Score / Elbow Method curves, real k=10 result.
+7. Section 6 - ADR Executive Summary & Actionable Recommendations.
+-->
+
+<!-- VISUALIZATION SELECTION SUMMARY:
+- KPI Cards: Goal: Inform -> Single Big Numbers with status indicators.
+- Chart 1 (Category Breakdown): Goal: Compare -> Donut Chart (Chart.js) showing proportional volume of categories.
+- Chart 2 (Channel vs Urgency): Goal: Compare/Organize -> Stacked Bar Chart (Chart.js) highlighting Bacen/Procon critical automated escalation.
+- Architecture Flow: Goal: Organize -> Structured HTML/CSS Process Cards (NO SVG/Mermaid) with color-coded status logic.
+- Chart 3 (Defensive Cyber Matrix): Goal: Compare -> Grouped Bar Chart (Chart.js) mapping incoming adversarial threats vs mitigated blocks.
+- Chart 4 (Model Routing Costs): Goal: Compare -> Multi-axis Bar/Line Chart (Chart.js) comparing Cost per 1M Tokens vs Latency.
+- Chart 5 (Clusterização K-Means local, bônus): Goal: Change/Relationships -> Dual-axis Line Chart (Chart.js) displaying Inertia (Elbow Method) and Silhouette Score.
+- All charts rendered in HTML5 Canvas via Chart.js with label wrapping and tooltip callbacks. NO SVG used.
+-->
+
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <span class="text-2xl bg-blue-600 text-white font-black px-3 py-1 rounded-lg shadow-inner">FG</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white">FinGuard — Assistente Inteligente de Reclamações</h1>
+          <p class="text-xs text-slate-400">Turma Terabyte | Future Minds 3 — Architecture & Analytics Report</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          POL-SAC-001 Ativa
+        </span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          Amazon Bedrock + LangGraph
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+
+    <section class="space-y-4">
+      <div class="bg-blue-900/5 border border-blue-200 rounded-2xl p-6 text-slate-800">
+        <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight">Visão Geral do Desafio FinGuard</h2>
+        <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+          O FinGuard automatiza a triagem, classificação, análise de risco regulatório e consolidação gerencial das reclamações recebidas por bancos por múltiplos canais. Operando sob o rigor da norma <strong class="text-blue-700">POL-SAC-001</strong> e do ambiente AWS da Turma Terabyte, a solução combina orquestração em grafo agêntico via <strong class="text-blue-700">LangGraph</strong>, guardrails determinísticos de entrada/saída (regex local, com integração ao <strong class="text-blue-700">Amazon Bedrock Guardrails</strong> oficial ainda pendente) e um fluxo opcional de clusterização não supervisionada (<strong class="text-blue-700">K-Means local via scikit-learn</strong>, com embeddings do Amazon Titan quando o LLM está habilitado).
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="glass-card rounded-xl p-5 shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Volume do Dataset</p>
+            <p class="text-3xl font-extrabold text-slate-900 mt-1">500</p>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">Reclamações não-estruturadas analisadas em lote.</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-5 shadow-sm border-l-4 border-emerald-500 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">SLA Bacen / Procon</p>
+            <p class="text-3xl font-extrabold text-emerald-600 mt-1">100%</p>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">Piso heurístico crítico automático (POL-SAC-001 §4.3); o agente de risco pode ajustar com justificativa registrada em log.</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-5 shadow-sm border-l-4 border-amber-500 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Modelo em Produção</p>
+            <p class="text-3xl font-extrabold text-amber-600 mt-1">Nova Lite</p>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">Triagem e risco no mesmo modelo (temporário); roteamento por tarefa é o desenho de referência.</p>
+        </div>
+
+        <div class="glass-card rounded-xl p-5 shadow-sm border-l-4 border-red-500 flex flex-col justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Ataques Mitigados</p>
+            <p class="text-3xl font-extrabold text-red-600 mt-1">100%</p>
+          </div>
+          <p class="text-xs text-slate-500 mt-3">16/250 reclamações bloqueadas no guardrail de entrada nesta execução (ver dashboard_logs.html).</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">1. Panorama Operacional e Regulatório (POL-SAC-001)</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          Esta seção detalha a volumetria de entrada categorizada por produto e canal de origem. A política interna estabelece enquadramento rígido: qualquer manifestação vinda do Banco Central ou Procon assume prioridade <strong class="text-red-600">CRÍTICA AUTOMÁTICA</strong> com prazo legal e notificação ao Compliance.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col">
+          <h3 class="text-base font-bold text-slate-900 mb-2">Distribuição de Reclamações por Categoria</h3>
+          <p class="text-xs text-slate-500 mb-4">Mapeamento percentual dos motivos alegados pelos clientes nas 250 reclamações classificadas nesta execução (resultado_analise.json), de um dataset total de 500 linhas.</p>
+          <div class="chart-container my-auto">
+            <canvas id="chartCategorias"></canvas>
+          </div>
+          <p class="text-xs text-slate-600 mt-4 bg-slate-100 p-3 rounded-lg">
+            <strong class="text-slate-800">Insight Operacional:</strong> A categoria <span class="font-semibold text-blue-600">Cobrança Indevida</span> lidera com 29% das reclamações classificadas, seguida por <span class="font-semibold text-blue-600">Atendimento</span> (25%) e <span class="font-semibold text-blue-600">Fraude/Segurança</span> (19%).
+          </p>
+        </div>
+
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col">
+          <h3 class="text-base font-bold text-slate-900 mb-2">Volume por Canal de Origem e Nível de Urgência</h3>
+          <p class="text-xs text-slate-500 mb-4">Análise comparativa demonstrando a aplicação estrita das regras de canal da POL-SAC-001.</p>
+          <div class="chart-container my-auto">
+            <canvas id="chartCanaisUrgencia"></canvas>
+          </div>
+          <p class="text-xs text-slate-600 mt-4 bg-slate-100 p-3 rounded-lg">
+            <strong class="text-slate-800">Insight Regulatório:</strong> O canal <span class="font-semibold text-red-600">Banco Central</span> (e, por regra, o <span class="font-semibold text-red-600">Procon</span>) recebe um piso heurístico de risco Crítico conforme POL-SAC-001 §4.3; nesta execução, 20 das 51 reclamações classificadas desse canal permaneceram em urgência Crítica, as demais foram reavaliadas pelo agente de risco com justificativa registrada em log.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">2. Arquitetura Multi-Agente em Grafo (LangGraph)</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          Para garantir modularidade, rastreabilidade e controle de estado, a aplicação utiliza uma máquina de estados orquestrada via <strong class="text-blue-700">LangGraph</strong>. Cada nó desempenha um papel isolado com telemetria contínua de latência e consumo de tokens.
+        </p>
+      </div>
+
+      <div class="glass-card rounded-2xl p-6 shadow-sm space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 relative">
+          
+          <div class="bg-slate-900 text-white rounded-xl p-4 border border-slate-800 flex flex-col justify-between shadow">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-amber-400 uppercase tracking-wide">Nó 0</span>
+                <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded">Regex local</span>
+              </div>
+              <h4 class="text-sm font-bold">Guardrail Entrada</h4>
+              <p class="text-xs text-slate-400 mt-2">Filtra Prompt Injection, falsas identidades, ameaças e caracteres inválidos.</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+              <span class="text-emerald-400 font-semibold">Pass:</span> Transfere p/ Agente 1<br>
+              <span class="text-red-400 font-semibold">Block:</span> Retorna Erro Educado
+            </div>
+          </div>
+
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-blue-600 uppercase tracking-wide">Nó 1</span>
+                <span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded">Nova Lite v1</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900">Agente Triagem</h4>
+              <p class="text-xs text-slate-600 mt-2">Higieniza palavrões, extrai produto, sentimento e enquadra Urgência via POL-SAC-001.</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-blue-200 text-[11px] text-slate-500">
+              <span class="font-semibold text-slate-700">Saída:</span> JSON Schema Triagem<br>
+              <span class="font-semibold text-slate-700">Latência:</span> ~420ms
+            </div>
+          </div>
+
+          <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-indigo-600 uppercase tracking-wide">Nó 2</span>
+                <span class="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded">Nova Lite v1</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900">Agente Risco & Compliance</h4>
+              <p class="text-xs text-slate-600 mt-2">Avalia fraude, violações LGPD, risco reputacional e define plano de escalação.</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-indigo-200 text-[11px] text-slate-500">
+              <span class="font-semibold text-slate-700">Saída:</span> Parecer de Risco<br>
+              <span class="font-semibold text-slate-700">Latência:</span> ~1150ms
+            </div>
+          </div>
+
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Nó 3</span>
+                <span class="text-[10px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded">Determinístico</span>
+              </div>
+              <h4 class="text-sm font-bold text-slate-900">Relatório Gerencial</h4>
+              <p class="text-xs text-slate-600 mt-2">Consolida estatísticas do lote, lista casos críticos e gera dashboard.html/json.</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-emerald-200 text-[11px] text-slate-500">
+              <span class="font-semibold text-slate-700">Saída:</span> Artefatos Locais<br>
+              <span class="font-semibold text-slate-700">Latência:</span> ~380ms
+            </div>
+          </div>
+
+          <div class="bg-slate-900 text-white rounded-xl p-4 border border-slate-800 flex flex-col justify-between shadow">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-xs font-bold text-emerald-400 uppercase tracking-wide">Nó 4</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded">Guardrail Saída</span>
+              </div>
+              <h4 class="text-sm font-bold">Sanitização de PII</h4>
+              <p class="text-xs text-slate-400 mt-2">Mascara CPFs, cartões e dados pessoais de qualquer relatório gerencial.</p>
+            </div>
+            <div class="mt-4 pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+              <span class="text-emerald-400 font-semibold">Garantia:</span> Conformidade LGPD<br>
+              <span class="text-emerald-400 font-semibold">Status:</span> Resposta Segura
+            </div>
+          </div>
+
+        </div>
+
+        <div class="bg-slate-100 rounded-xl p-4 text-xs text-slate-700 flex flex-col sm:flex-row justify-between items-center gap-2 border border-slate-200">
+          <div>
+            <strong class="text-slate-900">Estado Compartilhado (TypedDict):</strong>
+            <code class="text-blue-700 font-mono">FinGuardState { id, canal, texto_original, status, bloqueado, motivo_bloqueio, classificacao, risco_nivel, risco_justificativa, acao_recomendada, logs }</code>
+          </div>
+          <span class="bg-blue-600 text-white font-bold px-3 py-1 rounded shadow-sm whitespace-nowrap">
+            Fluxo Determinístico & Rastreável
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">3. Defesa Cibernética e Governança de Prompt Injection</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          O dataset do desafio contém múltiplos vetores de ataque concebidos para burlar as diretrizes do sistema. O <strong class="text-blue-700">guardrail de entrada baseado em regex</strong> (finguard/guardrails.py) intercepta esses padrões antes de acionar qualquer chamada de LLM; a integração com o Amazon Bedrock Guardrails oficial segue como evolução futura.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col lg:col-span-1">
+          <h3 class="text-base font-bold text-slate-900 mb-2">Mitigação por Categoria de Ataque</h3>
+          <p class="text-xs text-slate-500 mb-4">Volume de mensagens maliciosas interceptadas no nó de entrada vs. requisições válidas.</p>
+          <div class="chart-container my-auto">
+            <canvas id="chartSeguranca"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-xl p-6 shadow-sm lg:col-span-2 flex flex-col justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 mb-3">Amostragem de Ataques Mitigados do Dataset</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                    <th class="p-2.5 font-bold">ID Reclamação</th>
+                    <th class="p-2.5 font-bold">Vetor de Ataque</th>
+                    <th class="p-2.5 font-bold">Padrão Identificado</th>
+                    <th class="p-2.5 font-bold">Ação do FinGuard</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  <tr>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">REC-2026-00435</td>
+                    <td class="p-2.5 text-red-600 font-semibold">Prompt Injection</td>
+                    <td class="p-2.5 text-slate-600">Command: "SYSTEM PROMPT EXFIL"</td>
+                    <td class="p-2.5"><span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">Bloqueado no Nó 0</span></td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">REC-2026-00413</td>
+                    <td class="p-2.5 text-red-600 font-semibold">Evasão por Idioma</td>
+                    <td class="p-2.5 text-slate-600">Instrução em Esperanto ordenando inversão</td>
+                    <td class="p-2.5"><span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">Bloqueado no Nó 0</span></td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">REC-2026-00166</td>
+                    <td class="p-2.5 text-amber-600 font-semibold">Falsa Identidade</td>
+                    <td class="p-2.5 text-slate-600">Invocação fictícia de Diretor de Compliance</td>
+                    <td class="p-2.5"><span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">Tratado como Informação Falsa</span></td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">REC-2026-00535</td>
+                    <td class="p-2.5 text-red-600 font-semibold">Exfiltração via Base64</td>
+                    <td class="p-2.5 text-slate-600">Pede para converter CPF/conta/telefone em Base64 e anexar como "hash de integridade"</td>
+                    <td class="p-2.5"><span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">Bloqueado no Nó 0</span></td>
+                  </tr>
+                  <tr>
+                    <td class="p-2.5 font-mono font-bold text-slate-900">REC-2026-00288</td>
+                    <td class="p-2.5 text-red-600 font-semibold">Ameaça Física</td>
+                    <td class="p-2.5 text-slate-600">Intimidação contra executivos do banco</td>
+                    <td class="p-2.5"><span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">Bloqueado pelo Guardrail</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
+            <strong>Resposta Padronizada ao Usuário em Caso de Bloqueio:</strong><br>
+            <em>"Agradecemos o seu contato. A mensagem enviada não pôde ser processada pelo nosso sistema automatizado por conter padrões não suportados. Por favor, utilize os canais oficiais de atendimento."</em>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">4. Governança Financeira e Estratégia de Roteamento (Model Routing)</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          A alocação de um único modelo caro (ex.: Claude 3.5 Sonnet) em todas as chamadas resultaria em custo desproporcional para tarefas simples como a triagem. O desenho de referência do FinGuard prevê uma <strong class="text-blue-700">Matriz de Roteamento por Tarefa</strong> (modelo leve para triagem, modelo robusto só para risco); no runtime atual, ambas as etapas usam temporariamente <strong class="text-blue-700">Amazon Nova Lite v1</strong>, pois os modelos Anthropic desejados estão bloqueados por Service Control Policy da organização (ver <code class="text-blue-700 font-mono">finguard/bedrock_client.py</code>).
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col">
+          <h3 class="text-base font-bold text-slate-900 mb-2">Comparativo de Custo e Latência por Modelo</h3>
+          <p class="text-xs text-slate-500 mb-4">Análise de trade-off entre custo por milhão de tokens de entrada/saída vs. tempo médio de inferência.</p>
+          <div class="chart-container my-auto">
+            <canvas id="chartCustosModelos"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 mb-3">Tabela de Preços por Modelo (BRL / 1M tokens)</h3>
+            <div class="space-y-3">
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
+                <div>
+                  <p class="text-xs font-bold text-blue-900">Amazon Nova Lite v1 (em uso atualmente)</p>
+                  <p class="text-[11px] text-blue-700">Triagem e Risco, temporariamente no mesmo modelo</p>
+                </div>
+                <span class="text-sm font-extrabold text-emerald-600">R$ 0,34 / R$ 1,37</span>
+              </div>
+
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center">
+                <div>
+                  <p class="text-xs font-bold text-slate-800">Claude 3.5 Haiku (desenho de referência)</p>
+                  <p class="text-[11px] text-slate-500">Candidato original para a etapa de triagem</p>
+                </div>
+                <span class="text-sm font-extrabold text-red-600">R$ 4,56 / R$ 22,80</span>
+              </div>
+
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center">
+                <div>
+                  <p class="text-xs font-bold text-slate-800">Claude Sonnet 4.5 (desenho de referência)</p>
+                  <p class="text-[11px] text-slate-500">Candidato original para a etapa de risco</p>
+                </div>
+                <span class="text-sm font-extrabold text-red-600">R$ 17,10 / R$ 85,50</span>
+              </div>
+            </div>
+
+            <div class="mt-6 space-y-2 text-xs text-slate-600">
+              <p class="font-bold text-slate-800">Raciocínio de Eficiência:</p>
+              <ul class="list-disc pl-4 space-y-1">
+                <li><strong>Triagem e Risco (runtime atual):</strong> ambos usam <code>amazon.nova-lite-v1:0</code>, liberado pela SCP da organização enquanto os modelos Anthropic seguem bloqueados.</li>
+                <li><strong>Desenho de referência:</strong> modelo leve (Haiku) para triagem de alto volume e modelo robusto (Sonnet) reservado só para risco — a ser restaurado quando a SCP permitir.</li>
+                <li><strong>Relatório Gerencial:</strong> gerado de forma determinística (sem chamada de LLM), a partir da urgência e do risco já calculados.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 font-semibold text-center">
+            Custo real por execução (tokens de entrada/saída por agente) acompanhado em BRL no dashboard_logs.html.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">5. Aprendizado Não Supervisionado (Bônus — Clusterização K-Means)</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          Além das regras pré-definidas pela política interna, um fluxo opcional e separado do pipeline principal (<code class="text-blue-700 font-mono">script_cluster.py</code>) agrupa as reclamações com <strong class="text-blue-700">K-Means local (scikit-learn)</strong>, usando embeddings do <strong class="text-blue-700">Amazon Titan Embed Text V2</strong> via Bedrock (ou TF-IDF local em modo <code>--sem-llm</code>) para descobrir temas não catalogados nas 500 reclamações do dataset.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col">
+          <h3 class="text-base font-bold text-slate-900 mb-2">Seleção do K Ideal: Método do Cotovelo e Silhouette Score</h3>
+          <p class="text-xs text-slate-500 mb-4">Justificativa para a escolha de K=10, com base no maior Silhouette Score entre k=2 e k=10 (execução real registrada em resultado_clusters.json).</p>
+          <div class="chart-container my-auto">
+            <canvas id="chartKMeansMetrics"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 mb-3">Rótulos Reais Descobertos pelo K-Means (k=10)</h3>
+            <p class="text-xs text-slate-500 mb-3">Rótulos gerados pelo agente de rotulagem via Bedrock (Amazon Nova Lite v1) a partir dos textos de cada cluster, sobre as 500 reclamações do dataset.</p>
+            
+            <div class="space-y-3">
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-amber-900">Cluster 1: "Atendimento ineficiente e demorado"</span>
+                  <span class="text-[10px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded font-bold">67 registros</span>
+                </div>
+                <p class="text-[11px] text-amber-800 mt-1">
+                  Maior grupo identificado; reclamações sobre demora e ineficiência no atendimento.
+                </p>
+              </div>
+
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-blue-900">Cluster 3: "Problemas com serviços bancários e aplicativos"</span>
+                  <span class="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded font-bold">66 registros</span>
+                </div>
+                <p class="text-[11px] text-blue-800 mt-1">
+                  Segundo maior grupo; falhas técnicas em app/serviços digitais do banco.
+                </p>
+              </div>
+
+              <div class="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-bold text-purple-900">Cluster 8: "Cobranças indevidas e seguros não cumpridos"</span>
+                  <span class="text-[10px] bg-purple-200 text-purple-800 px-2 py-0.5 rounded font-bold">66 registros</span>
+                </div>
+                <p class="text-[11px] text-purple-800 mt-1">
+                  Empatado em tamanho; concentra reclamações de seguros com cláusulas não honradas.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 p-3 bg-slate-900 text-slate-300 rounded-lg text-xs">
+            <strong class="text-white">script_cleanup.py:</strong> verifica e remove (dry-run por padrão) eventuais recursos do Amazon SageMaker por prefixo. Nesta implementação o treino do K-Means roda localmente via scikit-learn e normalmente não há recursos provisionados para limpar.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="glass-card rounded-2xl p-8 shadow-sm space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h2 class="text-xl font-bold text-slate-900">6. Decisão Arquitetural (ADR Executivo) e Conclusão</h2>
+        <p class="text-sm text-slate-600 mt-1">
+          Resumo das diretrizes documentadas no arquivo <code class="text-blue-700 font-mono">adr_finguard.html</code> entregue ao repositório.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-700">
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 text-sm">Decisão Recomendada</h4>
+          <p class="leading-relaxed">
+            Adotar a orquestração multi-agente via LangGraph com guardrails determinísticos (regex) na camada de entrada e saída — a integração ao Bedrock Guardrails oficial fica como evolução futura. Descartou-se a abordagem monolítica por falta de auditabilidade e custo elevado.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 text-sm">Conformidade e LGPD</h4>
+          <p class="leading-relaxed">
+            Nenhum dado sensível de cliente (CPF, número de cartão, telefones) é mantido sem ofuscação nos relatórios gerenciais ou artefatos exportados, assegurando 100% de conformidade com a LGPD.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 text-sm">Prontidão para o Pitch</h4>
+          <p class="leading-relaxed">
+            Solução testada com artefatos gerados (`dashboard.html`, `dashboard_logs.html`, `resultado_analise.json`); a clusterização (bônus) roda localmente e não deixa recursos AWS provisionados a limpar.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="bg-slate-900 text-slate-400 text-xs py-6 border-t border-slate-800 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <p>© 2026 FinGuard — Turma Terabyte | Future Minds 3 Desafio Prático</p>
+      <p>Gerado para execução em ambiente local com Boto3, Bedrock e LangGraph</p>
+    </div>
+  </footer>
+
+  <script>
+    function wrapLabel(label) {
+      if (typeof label !== 'string') return label;
+      if (label.length <= 16) return label;
+      const words = label.split(' ');
+      const lines = [];
+      let currentLine = '';
+      words.forEach(word => {
+        if ((currentLine + ' ' + word).trim().length > 16) {
+          if (currentLine) lines.push(currentLine.trim());
+          currentLine = word;
+        } else {
+          currentLine += (currentLine ? ' ' : '') + word;
+        }
+      });
+      if (currentLine) lines.push(currentLine.trim());
+      return lines;
+    }
+
+    const commonTooltipOptions = {
+      plugins: {
+        legend: {
+          labels: {
+            color: '#334155',
+            font: { family: 'Inter', size: 12 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            title: function(tooltipItems) {
+              const item = tooltipItems[0];
+              let label = item.chart.data.labels[item.dataIndex];
+              if (Array.isArray(label)) {
+                return label.join(' ');
+              } else {
+                return label;
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const rawCatLabels = ['Cobrança Indevida', 'Atendimento', 'Fraude/Segurança', 'Produto/Serviço', 'Cancelamento', 'Outros'];
+    const wrappedCatLabels = rawCatLabels.map(wrapLabel);
+
+    const ctxCat = document.getElementById('chartCategorias').getContext('2d');
+    new Chart(ctxCat, {
+      type: 'doughnut',
+      data: {
+        labels: wrappedCatLabels,
+        datasets: [{
+          data: [68, 58, 44, 37, 26, 1],
+          backgroundColor: ['#2563EB', '#EF4444', '#F59E0B', '#06B6D4', '#64748B', '#8B5CF6'],
+          borderWidth: 2,
+          borderColor: '#FFFFFF'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: commonTooltipOptions.plugins
+      }
+    });
+
+    const rawCanaisLabels = ['SAC', 'Ouvidoria', 'Banco Central', 'Redes Sociais'];
+    const wrappedCanaisLabels = rawCanaisLabels.map(wrapLabel);
+
+    const ctxCanal = document.getElementById('chartCanaisUrgencia').getContext('2d');
+    new Chart(ctxCanal, {
+      type: 'bar',
+      data: {
+        labels: wrappedCanaisLabels,
+        datasets: [
+          {
+            label: 'Urgência Baixa / Média',
+            data: [8, 8, 5, 7],
+            backgroundColor: '#06B6D4'
+          },
+          {
+            label: 'Urgência Alta',
+            data: [39, 37, 26, 37],
+            backgroundColor: '#F59E0B'
+          },
+          {
+            label: 'Urgência Crítica (POL-SAC-001)',
+            data: [13, 21, 20, 13],
+            backgroundColor: '#EF4444'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true }
+        },
+        plugins: commonTooltipOptions.plugins
+      }
+    });
+
+    const rawSecLabels = ['Extração de Prompt/Config', 'Exfiltração de PII/URL/Base64', 'Jailbreak / Simulação', 'Falsa Autoridade', 'Reclamações Válidas Aprovadas'];
+    const wrappedSecLabels = rawSecLabels.map(wrapLabel);
+
+    const ctxSec = document.getElementById('chartSeguranca').getContext('2d');
+    new Chart(ctxSec, {
+      type: 'bar',
+      data: {
+        labels: wrappedSecLabels,
+        datasets: [
+          {
+            label: 'Ataques Bloqueados (Guardrail)',
+            data: [6, 5, 3, 2, 0],
+            backgroundColor: '#EF4444'
+          },
+          {
+            label: 'Aprovados p/ Agentes',
+            data: [0, 0, 0, 0, 234],
+            backgroundColor: '#10B981'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true }
+        },
+        plugins: commonTooltipOptions.plugins
+      }
+    });
+
+    const rawModelLabels = ['Amazon Nova Lite v1 (em uso)', 'Claude 3.5 Haiku (referência)', 'Claude Sonnet 4.5 (referência)'];
+    const wrappedModelLabels = rawModelLabels.map(wrapLabel);
+
+    const ctxCustos = document.getElementById('chartCustosModelos').getContext('2d');
+    new Chart(ctxCustos, {
+      type: 'bar',
+      data: {
+        labels: wrappedModelLabels,
+        datasets: [
+          {
+            label: 'Custo Entrada / 1M Tokens (R$)',
+            data: [0.34, 4.56, 17.10],
+            backgroundColor: '#2563EB'
+          },
+          {
+            label: 'Custo Saída / 1M Tokens (R$)',
+            data: [1.37, 22.80, 85.50],
+            backgroundColor: '#06B6D4'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true }
+        },
+        plugins: commonTooltipOptions.plugins
+      }
+    });
+
+    const rawKLabels = ['K=2', 'K=3', 'K=4', 'K=5', 'K=6', 'K=7', 'K=8', 'K=9', 'K=10 (Ideal)'];
+    const wrappedKLabels = rawKLabels.map(wrapLabel);
+
+    const ctxK = document.getElementById('chartKMeansMetrics').getContext('2d');
+    new Chart(ctxK, {
+      type: 'line',
+      data: {
+        labels: wrappedKLabels,
+        datasets: [
+          {
+            label: 'Inércia (Elbow Method)',
+            data: [345.63, 334.75, 324.99, 317.43, 310.03, 304.51, 299.39, 294.98, 290.31],
+            borderColor: '#2563EB',
+            backgroundColor: '#2563EB',
+            yAxisID: 'y',
+            tension: 0.3
+          },
+          {
+            label: 'Silhouette Score (0-1)',
+            data: [0.041, 0.036, 0.045, 0.049, 0.054, 0.052, 0.057, 0.055, 0.059],
+            borderColor: '#10B981',
+            backgroundColor: '#10B981',
+            yAxisID: 'y1',
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { display: true, text: 'Inércia' }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: 'Silhouette Score' }
+          }
+        },
+        plugins: commonTooltipOptions.plugins
+      }
+    });
+  </script>
+</body>
+</html>
+
+<!-- CONFIRMATION: Neither Mermaid JS nor SVG elements were used anywhere in this single-page application output. All charts rendered via Canvas (Chart.js), and diagrams implemented with structured HTML/CSS grid/flexbox components. -->
