@@ -33,13 +33,16 @@ _BACKOFF_BASE_S = 1.0
 
 MODELO_TRIAGEM_PADRAO = "amazon.nova-lite-v1:0"
 MODELO_RISCO_PADRAO = "amazon.nova-lite-v1:0"
-# MODELO_TRIAGEM_PADRAO = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
-# MODELO_RISCO_PADRAO = "global.anthropic.claude-sonnet-5"
 
-# Teto de maxTokens por chamada em lote: a familia Amazon Nova aceita no maximo 5000
-# tokens de saida por resposta (limite fixo da API, nao configuravel) — usamos 90% desse
-# teto como margem de seguranca contra truncamento (ver docs/tasks/09-processamento-em-lote-llm.md).
-MAX_TOKENS_LOTE = 4500
+# --- Configuração de limites de saída de tokens por função e tipo de chamada ---
+# A família Amazon Nova aceita no máximo 5000 tokens de saída por resposta.
+# Para chamadas em lote, usamos 4500 (90% do teto) como margem contra truncamento.
+MAX_TOKENS_TRIAGEM_LOTE = 4500
+
+MAX_TOKENS_TRIAGEM = 400
+MAX_TOKENS_RISCO = 300
+MAX_TOKENS_ROTULAGEM = 100
+MAX_TOKENS_RISCO_LOTE = 4500
 
 REGIAO_PADRAO = "us-east-1"
 
@@ -178,7 +181,7 @@ def classificar_reclamacao(
             modelId=modelo_id,
             system=[{"text": _PROMPT_SISTEMA}],
             messages=mensagens,
-            inferenceConfig={"temperature": 0, "maxTokens": 400},
+            inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_TRIAGEM},
         )
         texto_resposta = resposta["output"]["message"]["content"][0]["text"]
 
@@ -256,7 +259,7 @@ def analisar_risco(
             modelId=modelo_id,
             system=[{"text": _PROMPT_RISCO}],
             messages=[{"role": "user", "content": [{"text": mensagem}]}],
-            inferenceConfig={"temperature": 0, "maxTokens": 300},
+            inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_RISCO},
         )
         texto_resposta = resposta["output"]["message"]["content"][0]["text"]
         dados = _extrair_json(texto_resposta)
@@ -298,9 +301,7 @@ def rotular_cluster(
     regiao: str = REGIAO_PADRAO,
     cluster_id: int | None = None,
 ) -> str:
-    """Pede a um modelo leve (Haiku) um rótulo curto para um cluster, a partir de uma
-    amostra de reclamações representativas — tarefa simples, não precisa do modelo mais caro.
-    """
+    """Pede a um modelo leve (Haiku/Nova Lite) um rótulo curto para um cluster a partir de uma amostra."""
     cliente = _obter_cliente(regiao)
     inicio_chamada = time.time()
     amostra = "\n".join(f"- {t}" for t in textos_amostra)
@@ -311,7 +312,7 @@ def rotular_cluster(
             modelId=modelo_id,
             system=[{"text": _PROMPT_ROTULAGEM_CLUSTER}],
             messages=[{"role": "user", "content": [{"text": mensagem}]}],
-            inferenceConfig={"temperature": 0, "maxTokens": 100},
+            inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_ROTULAGEM},
         )
         texto_resposta = resposta["output"]["message"]["content"][0]["text"]
         dados = _extrair_json(texto_resposta)
@@ -335,11 +336,6 @@ def rotular_cluster(
 
 
 # --- Processamento em lote (batch) ---------------------------------------------------
-#
-# Agrupa N reclamações por chamada ao Bedrock (em vez de 1 por chamada) para diluir o
-# custo fixo do prompt de sistema e reduzir round-trips de rede. Ver
-# docs/tasks/09-processamento-em-lote-llm.md para o desenho completo, riscos e o cálculo
-# do tamanho de lote recomendado a partir do teto de `maxTokens` do modelo.
 
 _PROMPT_SISTEMA_LOTE_TRIAGEM = f"""Você é o agente classificador do FinGuard, um sistema de
 análise de reclamações bancárias. Você recebe um array JSON de reclamações, cada uma com
@@ -396,9 +392,7 @@ Responda APENAS com o array JSON, sem markdown, sem explicações adicionais.
 
 
 def _chamar_lote_triagem(lote: list[dict], modelo_id: str, regiao: str) -> dict[str, ClassificacaoReclamacao]:
-    """Classifica um único lote em uma chamada ao Bedrock. Lança exceção se a resposta
-    truncar, não vier em JSON válido, ou faltar algum id do lote — para que o chamador
-    (`_processar_em_lotes_com_fallback`) decida bissectar o lote."""
+    """Classifica um único lote em uma chamada ao Bedrock."""
     cliente = _obter_cliente(regiao)
     mensagem = "<reclamacoes>" + json.dumps(
         [{"id": item["id"], "texto": item["texto"]} for item in lote], ensure_ascii=False
@@ -410,7 +404,7 @@ def _chamar_lote_triagem(lote: list[dict], modelo_id: str, regiao: str) -> dict[
         modelId=modelo_id,
         system=[{"text": _PROMPT_SISTEMA_LOTE_TRIAGEM}],
         messages=[{"role": "user", "content": [{"text": mensagem}]}],
-        inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_LOTE},
+        inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_TRIAGEM_LOTE},
     )
     duracao_ms = round((time.time() - inicio_chamada) * 1000, 1)
     stop_reason = resposta.get("stopReason")
@@ -454,8 +448,7 @@ def _chamar_lote_triagem(lote: list[dict], modelo_id: str, regiao: str) -> dict[
 
 
 def _chamar_lote_risco(lote: list[dict], modelo_id: str, regiao: str) -> dict[str, tuple[str, str]]:
-    """Analisa risco de um único lote em uma chamada ao Bedrock (mesma semântica de
-    falha/fallback de `_chamar_lote_triagem`)."""
+    """Analisa risco de um único lote em uma chamada ao Bedrock."""
     cliente = _obter_cliente(regiao)
     itens_prompt = [
         {
@@ -475,7 +468,7 @@ def _chamar_lote_risco(lote: list[dict], modelo_id: str, regiao: str) -> dict[st
         modelId=modelo_id,
         system=[{"text": _PROMPT_RISCO_LOTE}],
         messages=[{"role": "user", "content": [{"text": mensagem}]}],
-        inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_LOTE},
+        inferenceConfig={"temperature": 0, "maxTokens": MAX_TOKENS_RISCO_LOTE},
     )
     duracao_ms = round((time.time() - inicio_chamada) * 1000, 1)
     stop_reason = resposta.get("stopReason")
@@ -530,12 +523,7 @@ def _processar_em_lotes_com_fallback(
     max_workers: int = 1,
     ao_concluir_lote: Callable[[], None] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Exception]]:
-    """Executa `chamar_lote` sobre `itens` divididos em lotes de `tamanho_lote`, em
-    paralelo entre lotes. Se um lote falhar (parse inválido, truncamento, ids ausentes),
-    bissecta recursivamente até isolar o(s) item(ns) problemático(s) — um item que falha
-    mesmo isolado (lote de tamanho 1) é reportado em `erros` sem invalidar o restante do
-    lote original. `ao_concluir_lote`, se informado, é chamado (de qualquer thread) uma
-    vez para cada lote de nível superior já resolvido — usado para reportar progresso."""
+    """Executa `chamar_lote` sobre `itens` divididos em lotes de `tamanho_lote` com bissecção em caso de erro."""
     if not itens:
         return {}, {}
 
@@ -581,9 +569,7 @@ def classificar_reclamacoes_lote(
     max_workers: int = 1,
     ao_concluir_lote: Callable[[], None] | None = None,
 ) -> tuple[dict[str, ClassificacaoReclamacao], dict[str, Exception]]:
-    """Classifica reclamações em lote. `itens` é uma lista de `{"id", "texto"}`. Retorna
-    `(resultado_por_id, erros_por_id)` — itens que falharem mesmo após a bissecção do lote
-    aparecem em `erros_por_id`, para o chamador decidir o fallback individual."""
+    """Classifica reclamações em lote."""
     return _processar_em_lotes_com_fallback(
         itens,
         tamanho_lote,
@@ -601,9 +587,7 @@ def analisar_riscos_lote(
     max_workers: int = 1,
     ao_concluir_lote: Callable[[], None] | None = None,
 ) -> tuple[dict[str, tuple[str, str]], dict[str, Exception]]:
-    """Analisa risco em lote. `itens` é uma lista de `{"id", "texto", "classificacao",
-    "nivel_heuristico", "fontes_politica"}`. Retorna `(resultado_por_id, erros_por_id)`
-    com a mesma semântica de `classificar_reclamacoes_lote`."""
+    """Analisa risco em lote."""
     return _processar_em_lotes_com_fallback(
         itens,
         tamanho_lote,
@@ -611,4 +595,3 @@ def analisar_riscos_lote(
         max_workers=max_workers,
         ao_concluir_lote=ao_concluir_lote,
     )
-
