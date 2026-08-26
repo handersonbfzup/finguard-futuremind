@@ -93,7 +93,11 @@ def no_agente_triagem(state: FinGuardState) -> dict:
     inicio = time.time()
     texto = state["texto_original"]
 
-    if state.get("_usar_llm", True):
+    classificacao_precomputada = state.get("_classificacao_precomputada")
+    if classificacao_precomputada is not None:
+        # Já classificado em lote (main.py); evita repetir a chamada ao Bedrock.
+        classificacao = classificacao_precomputada
+    elif state.get("_usar_llm", True):
         from finguard.bedrock_client import classificar_reclamacao
 
         classificacao = classificar_reclamacao(texto, reclamacao_id=state.get("id")).model_dump(mode="json")
@@ -110,7 +114,7 @@ def no_agente_triagem(state: FinGuardState) -> dict:
     return {"classificacao": classificacao, "logs": logs}
 
 
-def _risco_heuristico(texto: str, canal: str) -> tuple[str, str]:
+def calcular_risco_heuristico(texto: str, canal: str) -> tuple[str, str]:
     texto_lower = texto.lower()
     if canal in ("Banco Central", "Procon"):
         return "Crítico", "Canal regulatório identificado; urgência elevada pelo piso determinístico."
@@ -123,12 +127,23 @@ def _risco_heuristico(texto: str, canal: str) -> tuple[str, str]:
 def no_agente_risco(state: FinGuardState) -> dict:
     inicio = time.time()
     texto = state["texto_original"]
-    nivel_heuristico, justificativa_heuristica = _risco_heuristico(texto, state["canal"])
-    fontes_politica = recuperar_contexto_politica(
-        texto, state.get("classificacao"), state["canal"]
-    )
+    nivel_heuristico, justificativa_heuristica = calcular_risco_heuristico(texto, state["canal"])
 
-    if state.get("_usar_llm", True):
+    fontes_politica_precomputadas = state.get("_fontes_politica_precomputadas")
+    if fontes_politica_precomputadas is not None:
+        # Já recuperado durante a montagem do lote de risco (main.py); evita reprocessar o TF-IDF.
+        fontes_politica = fontes_politica_precomputadas
+    else:
+        fontes_politica = recuperar_contexto_politica(
+            texto, state.get("classificacao"), state["canal"]
+        )
+
+    risco_nivel_precomputado = state.get("_risco_nivel_precomputado")
+    if risco_nivel_precomputado is not None:
+        # Já avaliado em lote (main.py); evita repetir a chamada ao Bedrock.
+        nivel = risco_nivel_precomputado
+        justificativa = state.get("_risco_justificativa_precomputada") or ""
+    elif state.get("_usar_llm", True):
         from finguard.bedrock_client import analisar_risco
 
         nivel, justificativa = analisar_risco(

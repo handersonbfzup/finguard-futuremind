@@ -21,7 +21,9 @@ def _ler_linhas(caminho_jsonl: Path) -> list[dict]:
 
 _ACOES_BEDROCK = {
     "chamada_bedrock_triagem": "agente_triagem",
+    "chamada_bedrock_triagem_lote": "agente_triagem",
     "chamada_bedrock_risco": "agente_risco",
+    "chamada_bedrock_risco_lote": "agente_risco",
     "chamada_bedrock_rotulagem_cluster": "rotulagem_cluster",
 }
 
@@ -109,13 +111,19 @@ def _agregar_tokens(linhas: list[dict]) -> dict:
             agregado_agente["custo_brl"] += custo_linha
 
         reclamacao_id = linha.get("reclamacao_id")
-        if reclamacao_id:
-            agregado_mensagem = por_mensagem[reclamacao_id]
-            agregado_mensagem["reclamacao_id"] = reclamacao_id
-            agregado_mensagem["chamadas"] += 1
-            agregado_mensagem["tokens_entrada"] += entrada
-            agregado_mensagem["tokens_saida"] += saida
-            agregado_mensagem["tokens_total"] += total
+        # Em chamadas de lote não há um `reclamacao_id` único; os tokens/custo da chamada
+        # são rateados igualmente entre os ids do lote (`detalhes.reclamacoes_ids`) para
+        # preservar a rastreabilidade por reclamação mesmo no modo lote.
+        ids_para_ratear = detalhes.get("reclamacoes_ids") or ([reclamacao_id] if reclamacao_id else [])
+        n_ids = len(ids_para_ratear)
+        if n_ids:
+            for id_rateado in ids_para_ratear:
+                agregado_mensagem = por_mensagem[id_rateado]
+                agregado_mensagem["reclamacao_id"] = id_rateado
+                agregado_mensagem["chamadas"] += 1
+                agregado_mensagem["tokens_entrada"] += entrada / n_ids
+                agregado_mensagem["tokens_saida"] += saida / n_ids
+                agregado_mensagem["tokens_total"] += total / n_ids
 
     tokens_por_agente = sorted(por_agente.values(), key=lambda item: item["tokens_total"], reverse=True)
     for item in tokens_por_agente:
@@ -128,6 +136,11 @@ def _agregar_tokens(linhas: list[dict]) -> dict:
         item["custo_brl_fmt"] = _formatar_custo_brl(item["custo_brl"]) if item["custo_brl"] is not None else None
 
     top_mensagens = sorted(por_mensagem.values(), key=lambda item: item["tokens_total"], reverse=True)[:20]
+    for item in top_mensagens:
+        # Tokens rateados de chamadas em lote ficam fracionados; arredondar só para exibição.
+        item["tokens_entrada"] = round(item["tokens_entrada"], 1)
+        item["tokens_saida"] = round(item["tokens_saida"], 1)
+        item["tokens_total"] = round(item["tokens_total"], 1)
 
     custo_total_brl = sum(item["custo_brl"] for item in tokens_por_agente if item["custo_brl"] is not None)
     custo_disponivel = any(item["custo_brl"] is not None for item in tokens_por_agente)

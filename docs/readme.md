@@ -41,7 +41,7 @@ flowchart TD
     AT --> AR
 
     subgraph AR_GROUP["agente_risco"]
-        AR_H["_risco_heuristico()<br/>canal Bacen/Procon → Crítico<br/>gatilho textual → Alto · default → Baixo"]
+        AR_H["calcular_risco_heuristico()<br/>canal Bacen/Procon → Crítico<br/>gatilho textual → Alto · default → Baixo"]
         AR_LLM["analisar_risco()<br/>Bedrock Amazon Nova Lite v1 refina<br/>nível/justificativa da heurística"]
         AR_H --> AR_LLM
         AR_H -.->|--sem-llm: mantém heurística| AR_FB["nível/justificativa heurísticos"]
@@ -83,7 +83,7 @@ flowchart TD
 
 **Legenda:**
 
-- 🟦 Código determinístico (regras/regex, sem chamada a LLM): guardrail_entrada, resposta_bloqueio, agente_relatorio, guardrail_saida, e a heurística inicial de risco (`_risco_heuristico`).
+- 🟦 Código determinístico (regras/regex, sem chamada a LLM): guardrail_entrada, resposta_bloqueio, agente_relatorio, guardrail_saida, e a heurística inicial de risco (`calcular_risco_heuristico`).
 - 🟨 Agente IA (chamada a Bedrock, modelo Amazon Nova Lite v1): agente_triagem (classificação) e o refino LLM do agente_risco (`analisar_risco`).
 - ⬜ Tracejado: caminho de fallback usado apenas no modo `--sem-llm`, quando o nó roda só com a lógica local/heurística, sem chamar o modelo.
 
@@ -101,7 +101,7 @@ flowchart TD
         INVOKE --> N1["no_guardrail_entrada()<br/>→ verificar_guardrail_entrada()"]
         N1 --> N2["no_resposta_bloqueio()"]
         N1 --> N3["no_agente_triagem()<br/>→ classificar_reclamacao()"]
-        N3 --> N4["no_agente_risco()<br/>→ _risco_heuristico()<br/>→ analisar_risco()"]
+        N3 --> N4["no_agente_risco()<br/>→ calcular_risco_heuristico()<br/>→ analisar_risco()"]
         N4 --> N5["no_agente_relatorio()"]
         N5 --> N6["no_guardrail_saida()<br/>→ aplicar_guardrail_saida()"]
     end
