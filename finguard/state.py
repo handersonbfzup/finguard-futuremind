@@ -19,6 +19,8 @@ class FinGuardState(TypedDict, total=False):
 
     risco_nivel: str | None
     risco_justificativa: str | None
+    fontes_politica: list[dict[str, Any]]
+    politica_contexto_disponivel: bool
 
     acao_recomendada: str | None
 

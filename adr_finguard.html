@@ -83,6 +83,7 @@
       <li><a href="#seguranca">6. Recomendações de segurança</a></li>
       <li><a href="#clusterizacao">7. Bônus: arquitetura de clusterização</a></li>
       <li><a href="#status">8. Status da implementação</a></li>
+      <li><a href="#rag">9. RAG da política interna</a></li>
     </ul>
   </nav>
   <main>
@@ -332,6 +333,25 @@
         <tr><td>Rotulagem de clusters via LLM</td><td><span class="badge atencao">Pendente</span> — código pronto (<code>rotular_cluster</code>), não testado contra Bedrock real; modo local usa palavras-chave como fallback.</td></tr>
         <tr><td>script_cleanup.py</td><td><span class="badge ok">Concluído</span> — dry-run por padrão, testado sem credenciais (reporta corretamente "nada para verificar/remover").</td></tr>
       </table>
+    </section>
+
+    <section id="rag">
+      <h2>9. RAG da política interna</h2>
+      <p>
+        Foi escolhida uma implementação local para manter o pipeline executável offline e
+        tornar a evidência auditável. O PDF <code>KS_POLITICA_INTERNA (4).pdf</code> é extraído
+        com <code>pypdf</code>; o texto é dividido em chunks de até 2.400 caracteres, com
+        sobreposição de 300 caracteres, preservando página e seção. O índice TF-IDF é montado
+        em memória uma vez por processo com <code>scikit-learn</code>.
+      </p>
+      <p>
+        O agente de risco recupera até quatro chunks acima da similaridade mínima de 0,08 e
+        recebe esse conteúdo dentro de <code>&lt;politica_interna&gt;</code>, explicitamente
+        delimitado como evidência não confiável e nunca como instrução. A saída transporta
+        <code>chunk_id</code>, página, seção e score em <code>fontes_politica</code>. Sem
+        contexto relevante, o pipeline não inventa uma fonte e exige validação manual no
+        relatório.
+      </p>
     </section>
 
     <footer>

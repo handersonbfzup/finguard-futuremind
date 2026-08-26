@@ -1,4 +1,5 @@
 boto3
+pypdf
 langchain-aws
 langchain-core
 langgraph

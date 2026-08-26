@@ -1,6 +1,7 @@
 """Schemas oficiais do desafio FinGuard (enums e modelo de saída do Nível 1)."""
 
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -59,5 +60,7 @@ class ResultadoReclamacao(BaseModel):
     classificacao: ClassificacaoReclamacao | None = None
     risco_nivel: str | None = None
     risco_justificativa: str | None = None
+    fontes_politica: list[dict[str, Any]] = Field(default_factory=list)
+    politica_contexto_disponivel: bool = False
     acao_recomendada: str | None = None
     logs: list[dict] = Field(default_factory=list)

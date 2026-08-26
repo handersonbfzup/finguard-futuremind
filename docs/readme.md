@@ -137,6 +137,7 @@ flowchart TD
 - finguard/agentes.py: implementação dos nós do grafo.
 - finguard/guardrails.py: guardrails de entrada e saída.
 - finguard/bedrock_client.py: chamadas Bedrock e parsing das respostas.
+- finguard/rag.py: ingestão do PDF da política, chunking e retriever TF-IDF offline.
 - finguard/dashboard_logs.py: métricas e dashboard de rastreabilidade.
 - script_cluster.py: bônus de clusterização por similaridade.
 - templates/dashboard.html.j2: template do dashboard funcional.
@@ -156,6 +157,21 @@ Esses defaults ficam em finguard/bedrock_client.py.
 ### 1) Ambiente
 
 Use o Python da venv do projeto para evitar incompatibilidades de dependências.
+
+### RAG da política interna
+
+O RAG é local e reproduzível: `finguard/rag.py` extrai `docs/KS_POLITICA_INTERNA (4).pdf`
+com `pypdf`, divide o texto por página/seção em chunks de até 2.400 caracteres com
+sobreposição de 300 caracteres e indexa os chunks em TF-IDF. O índice é carregado uma vez
+por processo e contém exclusivamente a política, sem reclamações ou logs.
+
+O agente de risco recupera até quatro chunks com similaridade mínima de `0.08`. Os chunks
+são enviados ao modelo dentro de `<politica_interna>` como evidência documental, nunca como
+instrução. Cada resultado inclui `fontes_politica` com `chunk_id`, página, seção e score.
+Quando nenhum chunk supera o limiar, `politica_contexto_disponivel` fica falso e o relatório
+solicita validação manual da fonte normativa.
+
+As dependências do RAG são `pypdf` e `scikit-learn`; instale-as com `pip install -r requirements.txt`.
 
 ### 2) Execução sem LLM (offline)
 
