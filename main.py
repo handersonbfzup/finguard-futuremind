@@ -79,6 +79,8 @@ def _processar_linha(grafo, linha, usar_llm: bool) -> ResultadoReclamacao:
         classificacao=estado_final.get("classificacao"),
         risco_nivel=estado_final.get("risco_nivel"),
         risco_justificativa=estado_final.get("risco_justificativa"),
+        fontes_politica=estado_final.get("fontes_politica", []),
+        politica_contexto_disponivel=estado_final.get("politica_contexto_disponivel", False),
         acao_recomendada=estado_final.get("acao_recomendada"),
         logs=estado_final.get("logs", []),
     )

@@ -13,6 +13,7 @@ from finguard.guardrails import (
     verificar_guardrail_entrada,
 )
 from finguard.logging_config import registrar
+from finguard.rag import recuperar_contexto_politica
 from finguard.schemas import Categoria, Produto, Sentimento, Urgencia
 from finguard.state import FinGuardState
 
@@ -112,7 +113,7 @@ def no_agente_triagem(state: FinGuardState) -> dict:
 def _risco_heuristico(texto: str, canal: str) -> tuple[str, str]:
     texto_lower = texto.lower()
     if canal in ("Banco Central", "Procon"):
-        return "Crítico", "Canal regulatório (Banco Central/Procon) — urgência automaticamente crítica conforme POL-SAC-001 seção 4.3."
+        return "Crítico", "Canal regulatório identificado; urgência elevada pelo piso determinístico."
     gatilho = next((g for g in _GATILHOS_RISCO_CRITICO if g in texto_lower), None)
     if gatilho:
         return "Alto", f'Indício textual de risco elevado detectado ("{gatilho}").'
@@ -123,19 +124,32 @@ def no_agente_risco(state: FinGuardState) -> dict:
     inicio = time.time()
     texto = state["texto_original"]
     nivel_heuristico, justificativa_heuristica = _risco_heuristico(texto, state["canal"])
+    fontes_politica = recuperar_contexto_politica(
+        texto, state.get("classificacao"), state["canal"]
+    )
 
     if state.get("_usar_llm", True):
         from finguard.bedrock_client import analisar_risco
 
         nivel, justificativa = analisar_risco(
-            texto, state.get("classificacao") or {}, nivel_heuristico, reclamacao_id=state.get("id")
+            texto,
+            state.get("classificacao") or {},
+            nivel_heuristico,
+            fontes_politica,
+            reclamacao_id=state.get("id"),
         )
     else:
         nivel, justificativa = nivel_heuristico, justificativa_heuristica
 
     saida = {"nivel": nivel, "justificativa": justificativa}
     logs = _log("agente_risco", texto, saida, inicio, reclamacao_id=state.get("id"))
-    return {"risco_nivel": nivel, "risco_justificativa": justificativa, "logs": logs}
+    return {
+        "risco_nivel": nivel,
+        "risco_justificativa": justificativa,
+        "fontes_politica": fontes_politica,
+        "politica_contexto_disponivel": bool(fontes_politica),
+        "logs": logs,
+    }
 
 
 def no_agente_relatorio(state: FinGuardState) -> dict:
@@ -144,6 +158,11 @@ def no_agente_relatorio(state: FinGuardState) -> dict:
     urgencia = classificacao.get("urgencia", Urgencia.BAIXA.value)
 
     acao = _ACOES_POR_URGENCIA.get(urgencia, "Encaminhar para fila padrão da área responsável.")
+    fontes = state.get("fontes_politica", [])
+    if fontes:
+        acao += " Fonte normativa: " + ", ".join(fonte["chunk_id"] for fonte in fontes) + "."
+    else:
+        acao += " Fonte normativa não recuperada; requer validação manual."
     if state.get("risco_nivel") in ("Alto", "Crítico"):
         acao += " Escalar para compliance/jurídico dado o nível de risco identificado pelo agente de risco."
 
