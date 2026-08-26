@@ -53,10 +53,19 @@
       <div class="rotulo">Sem estimativa de valores</div>
       {% endif %}
     </div>
+    {% else %}
+    <div class="cartao"><div class="numero">0</div><div class="rotulo">Chamadas Bedrock (sem métricas de tokens)</div></div>
     {% endif %}
   </div>
 
   <div class="grade">
+    {% if diagnostico_tokens %}
+    <div class="painel" style="grid-column: 1 / -1;">
+      <h2>Métricas de tokens</h2>
+      <p class="subtitulo" style="margin: 0;">{{ diagnostico_tokens }}</p>
+    </div>
+    {% endif %}
+
     {% if tokens_por_agente %}
     <div class="painel" style="grid-column: 1 / -1;">
       <h2>Consumo de tokens por agente</h2>

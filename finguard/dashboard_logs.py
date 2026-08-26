@@ -145,6 +145,39 @@ def _agregar_tokens(linhas: list[dict]) -> dict:
     return {"totais": totais, "por_agente": tokens_por_agente, "top_mensagens": top_mensagens}
 
 
+def _diagnosticar_tokens_indisponiveis(linhas: list[dict], total_chamadas_tokens: int) -> str | None:
+    """Explica por que o dashboard pode não exibir métricas de tokens."""
+    if total_chamadas_tokens > 0:
+        return None
+
+    inicio_execucao = next((linha for linha in linhas if linha.get("acao") == "execucao_cli_inicio"), None)
+    usar_llm = bool(inicio_execucao and inicio_execucao.get("detalhes", {}).get("usar_llm"))
+    if not usar_llm:
+        return "Execução sem LLM (--sem-llm): não há chamadas Bedrock para contabilizar tokens."
+
+    erros_pipeline = [
+        linha
+        for linha in linhas
+        if linha.get("acao") == "erro_pipeline" and linha.get("status") == "erro"
+    ]
+
+    erro_sso = next(
+        (
+            linha.get("detalhes", {}).get("erro", "")
+            for linha in erros_pipeline
+            if "token from sso" in str(linha.get("detalhes", {}).get("erro", "")).lower()
+        ),
+        None,
+    )
+    if erro_sso:
+        return "Nenhuma chamada Bedrock registrada: credencial AWS SSO expirada ou inválida (faça aws sso login e execute novamente)."
+
+    if erros_pipeline:
+        return "Nenhuma chamada Bedrock registrada: houve falhas de pipeline antes das etapas de triagem/risco."
+
+    return "Nenhuma chamada Bedrock registrada nesta execução; sem dados de tokens para exibir."
+
+
 def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
     """Lê um arquivo de log JSONL de uma execução e gera um dashboard HTML de rastreabilidade."""
     linhas = _ler_linhas(caminho_jsonl)
@@ -190,6 +223,7 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
     )
 
     tokens = _agregar_tokens(linhas)
+    diagnostico_tokens = _diagnosticar_tokens_indisponiveis(linhas, tokens["totais"]["chamadas"])
 
     execucao_id = linhas[0]["execucao_id"] if linhas else None
 
@@ -210,5 +244,6 @@ def gerar_dashboard_logs(caminho_jsonl: Path, caminho_saida: str) -> None:
         tokens_totais=tokens["totais"],
         tokens_por_agente=tokens["por_agente"],
         tokens_top_mensagens=tokens["top_mensagens"],
+        diagnostico_tokens=diagnostico_tokens,
     )
     Path(caminho_saida).write_text(html, encoding="utf-8")
