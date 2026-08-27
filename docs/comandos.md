@@ -4,6 +4,19 @@ python3 main.py --sem-llm, que processa tudo sem chamar o Bedrock — não gasta
 
 python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1 --limit 100
 
+# Processamento em lote (--batch-size): agrupa N reclamações por chamada ao Bedrock (triagem
+# e risco) em vez de 1 por chamada, reduzindo custo/latência — ver docs/tasks/09-processamento-em-lote-llm.md
+python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1 --batch-size 15
+
+# Lote + limite de registros (teste rápido, ex.: 50 registros em lotes de 15)
+python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1 --batch-size 15 --limit 50
+
+# Lote + workers (paraleliza as chamadas de lote entre si; default de --workers é 16)
+python3 main.py --csv "dados/dataset_finguard_desafio_3 (5).csv" --aws-profile bedrock --aws-region us-east-1 --batch-size 15 --workers 8
+
+# --batch-size é ignorado (com aviso) se combinado com --sem-llm, pois não há chamada ao Bedrock para agrupar
+python3 main.py --sem-llm --batch-size 15
+
 
 aws sso login --profile bedrock
 
